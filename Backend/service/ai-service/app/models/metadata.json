@@ -1,6 +1,6 @@
 {
-  "model_version": "20260228081928",
-  "created_at_utc": "2026-02-28T08:19:28.356175",
+  "model_version": "20260302032759",
+  "created_at_utc": "2026-03-02T03:27:59.939602",
   "horizons": [
     1,
     2,
@@ -110,6 +110,13 @@
     "val_ratio": 0.15,
     "test_ratio": 0.15
   },
+  "backtest": {
+    "min_train_days": 180,
+    "val_days": 30,
+    "test_days": 30,
+    "step_days": 14,
+    "fold_count": 8
+  },
   "best_params": {
     "day1": {
       "max_depth": 4,
@@ -127,21 +134,21 @@
     },
     "day3": {
       "max_depth": 4,
-      "learning_rate": 0.05,
+      "learning_rate": 0.03,
       "n_estimators": 300,
       "subsample": 0.8,
       "colsample_bytree": 0.8
     },
     "day4": {
       "max_depth": 4,
-      "learning_rate": 0.05,
-      "n_estimators": 300,
+      "learning_rate": 0.03,
+      "n_estimators": 500,
       "subsample": 0.8,
-      "colsample_bytree": 1.0
+      "colsample_bytree": 0.8
     },
     "day5": {
       "max_depth": 4,
-      "learning_rate": 0.03,
+      "learning_rate": 0.05,
       "n_estimators": 300,
       "subsample": 0.8,
       "colsample_bytree": 0.8
@@ -150,7 +157,7 @@
       "max_depth": 4,
       "learning_rate": 0.03,
       "n_estimators": 300,
-      "subsample": 0.8,
+      "subsample": 1.0,
       "colsample_bytree": 0.8
     },
     "day7": {
@@ -161,16 +168,82 @@
       "colsample_bytree": 1.0
     }
   },
+  "validation_metrics": {
+    "day1": {
+      "baseline_rmse": 0.255789,
+      "xgboost_rmse": 0.248309
+    },
+    "day2": {
+      "baseline_rmse": 0.263472,
+      "xgboost_rmse": 0.265077
+    },
+    "day3": {
+      "baseline_rmse": 0.27913,
+      "xgboost_rmse": 0.249263
+    },
+    "day4": {
+      "baseline_rmse": 0.290927,
+      "xgboost_rmse": 0.295937
+    },
+    "day5": {
+      "baseline_rmse": 0.289521,
+      "xgboost_rmse": 0.287063
+    },
+    "day6": {
+      "baseline_rmse": 0.294934,
+      "xgboost_rmse": 0.256173
+    },
+    "day7": {
+      "baseline_rmse": 0.289858,
+      "xgboost_rmse": 0.260608
+    }
+  },
+  "champion_by_horizon": {
+    "day1": "xgboost",
+    "day2": "baseline_linear",
+    "day3": "xgboost",
+    "day4": "baseline_linear",
+    "day5": "xgboost",
+    "day6": "xgboost",
+    "day7": "xgboost"
+  },
+  "regression_check": [
+    {
+      "horizon": 1,
+      "previous_rmse": 0.4560735106638094,
+      "current_rmse": 0.5522303595730502,
+      "pct_change": 0.2108362942835371,
+      "status": "fail"
+    },
+    {
+      "horizon": 3,
+      "previous_rmse": 0.5710213251615174,
+      "current_rmse": 0.695105093200989,
+      "pct_change": 0.21730146068428122,
+      "status": "fail"
+    },
+    {
+      "horizon": 7,
+      "previous_rmse": 0.8392430131431479,
+      "current_rmse": 1.0316713903483097,
+      "pct_change": 0.2292880300361103,
+      "status": "fail"
+    }
+  ],
+  "regression_gate_passed": false,
   "artifacts": {
     "prepared_daily_csv": "C:\\Users\\Administrator\\Desktop\\Mekong-sight-AI\\Backend\\service\\ai-service\\app\\data\\prepared_daily_dataset.csv",
     "train_feature_csv": "C:\\Users\\Administrator\\Desktop\\Mekong-sight-AI\\Backend\\service\\ai-service\\app\\data\\train_feature_dataset.csv",
     "metrics_csv": "C:\\Users\\Administrator\\Desktop\\Mekong-sight-AI\\Backend\\service\\ai-service\\app\\reports\\metrics_summary.csv",
     "predictions_csv": "C:\\Users\\Administrator\\Desktop\\Mekong-sight-AI\\Backend\\service\\ai-service\\app\\reports\\predictions_test.csv",
+    "backtest_metrics_csv": "C:\\Users\\Administrator\\Desktop\\Mekong-sight-AI\\Backend\\service\\ai-service\\app\\reports\\backtest_metrics_summary.csv",
+    "lstm_metrics_csv": "C:\\Users\\Administrator\\Desktop\\Mekong-sight-AI\\Backend\\service\\ai-service\\app\\reports\\lstm_pilot_metrics.csv",
+    "regression_check_csv": "C:\\Users\\Administrator\\Desktop\\Mekong-sight-AI\\Backend\\service\\ai-service\\app\\reports\\regression_check.csv",
     "report_path": "C:\\Users\\Administrator\\Desktop\\Mekong-sight-AI\\Backend\\service\\ai-service\\app\\reports\\report_ai1.md"
   },
   "data_sources": {
     "weather_csv": "app\\data\\weather_province_daily.csv",
-    "local_dataset": "app\\data\\weather_province_daily.csv",
+    "local_dataset": "app\\data\\local_dataset_with_do_man.csv",
     "supabase_fallback": false
   }
 }

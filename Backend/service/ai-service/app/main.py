@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
+import json
 import os
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from PIL import Image
 from pydantic import BaseModel
 from supabase import Client, create_client
 
+from app.ml_pipeline.config import DEFAULT_METADATA_PATH
 from app.ml_pipeline.infer import ForecastError, ForecastResult, ForecastService
 from app.ml_pipeline.data_loader import parse_province_from_address
 
@@ -117,10 +119,12 @@ class Forecast7DResponse(BaseModel):
     province: str
     as_of: str
     model_version: str
+    model_set_used: str
     forecast: list[ForecastPointResponse]
 
 
 _forecast_service: Optional[ForecastService] = None
+_forecast_service_metadata_mtime: Optional[float] = None
 FARM_CODE_PROVINCE = {
     "ST": "Soc Trang",
     "BL": "Bac Lieu",
@@ -130,10 +134,33 @@ FARM_CODE_PROVINCE = {
 }
 
 
+def _read_csv_report(file_name: str):
+    report_path = REPORTS_DIR / file_name
+    if not report_path.exists():
+        return []
+    with report_path.open("r", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        return list(reader)
+
+
+def _read_model_metadata() -> dict:
+    if not DEFAULT_METADATA_PATH.exists():
+        raise HTTPException(status_code=404, detail="Model metadata not found. Train AI1 first.")
+    return json.loads(DEFAULT_METADATA_PATH.read_text(encoding="utf-8"))
+
+
+def _get_metadata_mtime() -> Optional[float]:
+    if not DEFAULT_METADATA_PATH.exists():
+        return None
+    return DEFAULT_METADATA_PATH.stat().st_mtime
+
+
 def get_forecast_service() -> ForecastService:
-    global _forecast_service
-    if _forecast_service is None:
+    global _forecast_service, _forecast_service_metadata_mtime
+    metadata_mtime = _get_metadata_mtime()
+    if _forecast_service is None or _forecast_service_metadata_mtime != metadata_mtime:
         _forecast_service = ForecastService()
+        _forecast_service_metadata_mtime = metadata_mtime
     return _forecast_service
 
 
@@ -157,26 +184,59 @@ def list_report_charts(request: Request):
 
 @app.get("/api/ai/reports/metrics")
 def get_report_metrics():
-    metrics_path = REPORTS_DIR / "metrics_summary.csv"
-    if not metrics_path.exists():
-        return {"success": True, "data": []}
-    with metrics_path.open("r", encoding="utf-8") as handle:
-        reader = csv.DictReader(handle)
-        rows = list(reader)
-    return {"success": True, "data": rows}
+    return {"success": True, "data": _read_csv_report("metrics_summary.csv")}
+
+
+@app.get("/api/ai/reports/backtest-metrics")
+def get_backtest_metrics():
+    return {"success": True, "data": _read_csv_report("backtest_metrics_summary.csv")}
+
+
+@app.get("/api/ai/reports/lstm-metrics")
+def get_lstm_metrics():
+    return {"success": True, "data": _read_csv_report("lstm_pilot_metrics.csv")}
+
+
+@app.get("/api/ai/reports/regression-check")
+def get_regression_check():
+    return {"success": True, "data": _read_csv_report("regression_check.csv")}
+
+
+@app.get("/api/ai/model/metadata")
+def get_model_metadata():
+    return {"success": True, "data": _read_model_metadata()}
+
+
+@app.post("/api/ai/model/reload")
+def reload_model_cache():
+    global _forecast_service, _forecast_service_metadata_mtime
+    _forecast_service = None
+    _forecast_service_metadata_mtime = None
+    service = get_forecast_service()
+    return {
+        "success": True,
+        "message": "Forecast model cache reloaded.",
+        "model_version": service.metadata.get("model_version", "unknown"),
+    }
 
 
 @app.get("/api/ai/forecast7d", response_model=Forecast7DResponse)
 def forecast_7d(
     province: str = Query(..., description="Province name"),
     as_of: Optional[str] = Query(None, description="Optional date YYYY-MM-DD"),
+    model_set: str = Query("champion", description="champion|baseline|xgboost"),
 ):
     try:
-        result: ForecastResult = get_forecast_service().forecast(province=province, as_of=as_of)
+        result: ForecastResult = get_forecast_service().forecast(
+            province=province,
+            as_of=as_of,
+            model_set=model_set,
+        )
         return Forecast7DResponse(
             province=result.province,
             as_of=result.as_of,
             model_version=result.model_version,
+            model_set_used=result.model_set_used,
             forecast=[ForecastPointResponse(**point.__dict__) for point in result.forecast],
         )
     except ForecastError as exc:
@@ -189,6 +249,7 @@ def forecast_7d(
 def forecast_7d_by_farm(
     farm_id: str,
     as_of: Optional[str] = Query(None, description="Optional date YYYY-MM-DD"),
+    model_set: str = Query("champion", description="champion|baseline|xgboost"),
 ):
     client = _require_supabase()
     try:
@@ -205,11 +266,16 @@ def forecast_7d_by_farm(
         if not province:
             raise HTTPException(status_code=422, detail="Cannot infer province from farm.")
 
-        result: ForecastResult = get_forecast_service().forecast(province=province, as_of=as_of)
+        result: ForecastResult = get_forecast_service().forecast(
+            province=province,
+            as_of=as_of,
+            model_set=model_set,
+        )
         return Forecast7DResponse(
             province=result.province,
             as_of=result.as_of,
             model_version=result.model_version,
+            model_set_used=result.model_set_used,
             forecast=[ForecastPointResponse(**point.__dict__) for point in result.forecast],
         )
     except HTTPException:

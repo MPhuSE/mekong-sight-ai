@@ -8,11 +8,13 @@ import numpy as np
 import pandas as pd
 
 from app.ml_pipeline.data_loader import normalize_province_name, parse_province_from_address
+from app.ml_pipeline.evaluate import build_rolling_origin_windows
 from app.ml_pipeline.feature_builder import (
     build_feature_frame,
     filter_valid_provinces,
     time_series_split,
 )
+from app.ml_pipeline.infer import ForecastService
 from app.ml_pipeline.train import run_training
 
 
@@ -91,6 +93,33 @@ class TestTrainingIntegration(unittest.TestCase):
             self.assertTrue((models_dir / f"salinity_day{horizon}.pkl").exists())
             self.assertTrue((models_dir / f"baseline_day{horizon}.pkl").exists())
         self.assertIn("model_version", metadata)
+        self.assertIn("champion_by_horizon", metadata)
+        self.assertEqual(len(metadata["champion_by_horizon"]), 7)
+
+        reports_dir = Path("app/reports")
+        self.assertTrue((reports_dir / "backtest_metrics_summary.csv").exists())
+        self.assertTrue((reports_dir / "lstm_pilot_metrics.csv").exists())
+        self.assertTrue((reports_dir / "regression_check.csv").exists())
+
+        service = ForecastService()
+        for model_set in ("champion", "baseline", "xgboost"):
+            result = service.forecast(province="Soc Trang", model_set=model_set)
+            self.assertEqual(result.model_set_used, model_set)
+            self.assertEqual(len(result.forecast), 7)
+
+    def test_rolling_backtest_windows(self):
+        dates = pd.date_range("2024-01-01", periods=365, freq="D")
+        windows = build_rolling_origin_windows(
+            unique_dates=dates,
+            min_train_days=180,
+            val_days=30,
+            test_days=30,
+            step_days=14,
+        )
+        self.assertGreater(len(windows), 0)
+        for window in windows:
+            self.assertLess(window.train_end_date, window.val_end_date)
+            self.assertLess(window.val_end_date, window.test_end_date)
 
 
 if __name__ == "__main__":

@@ -86,6 +86,10 @@ def build_report_markdown(
     model_version: str,
     chart_paths: List[Path],
     season_chart_path: Path,
+    champion_by_horizon: Dict[str, str],
+    backtest_summary_df: pd.DataFrame,
+    lstm_metrics_df: pd.DataFrame,
+    regression_check_df: pd.DataFrame,
 ) -> str:
     metric_focus = metrics_df[metrics_df["horizon"].isin([1, 3, 7])].copy()
     metric_focus["mae"] = metric_focus["mae"].round(4)
@@ -98,6 +102,25 @@ def build_report_markdown(
     season_view = season_df[season_df["horizon"].isin([1, 3, 7])].copy()
     season_view["mae"] = season_view["mae"].round(4)
     season_view["rmse"] = season_view["rmse"].round(4)
+    backtest_view = backtest_summary_df.copy()
+    for column in ("mae_mean", "mae_std", "rmse_mean", "rmse_std"):
+        if column in backtest_view.columns:
+            backtest_view[column] = backtest_view[column].round(4)
+    lstm_view = lstm_metrics_df.copy()
+    for column in ("mae", "rmse"):
+        if column in lstm_view.columns:
+            lstm_view[column] = lstm_view[column].round(4)
+    regression_view = regression_check_df.copy()
+    if "pct_change" in regression_view.columns:
+        regression_view["pct_change"] = (regression_view["pct_change"] * 100.0).round(2).astype(str) + "%"
+    failed_horizons = []
+    if "status" in regression_check_df.columns and "horizon" in regression_check_df.columns:
+        failed_horizons = sorted(
+            int(item) for item in regression_check_df[regression_check_df["status"] == "fail"]["horizon"].tolist()
+        )
+    champion_rows = pd.DataFrame(
+        [{"horizon": key, "champion_model": value} for key, value in sorted(champion_by_horizon.items())]
+    )
 
     lines = [
         "# AI1 Report - 7-day Salinity Forecast",
@@ -113,11 +136,30 @@ def build_report_markdown(
         "## Metrics (day1/day3/day7)",
         _markdown_table(metric_focus.sort_values(["horizon", "model"]).reset_index(drop=True)),
         "",
+        "## Champion by Horizon (production)",
+        _markdown_table(champion_rows),
+        "",
         "## Full Metrics (day1..day7)",
         _markdown_table(full_metrics.sort_values(["horizon", "model"]).reset_index(drop=True)),
         "",
+        "## Rolling-origin Backtest Summary",
+        _markdown_table(backtest_view),
+        "",
         "## Error by Season (dry vs rainy)",
         _markdown_table(season_view.sort_values(["model", "horizon", "season"]).reset_index(drop=True)),
+        "",
+        "## LSTM Pilot",
+        _markdown_table(lstm_view),
+        "",
+        "## Regression Check vs Previous Version",
+        _markdown_table(regression_view),
+        "",
+        "Regression gate note:",
+        (
+            f"- WARNING: RMSE degradation >10% detected at horizons: {', '.join([f'day{h}' for h in failed_horizons])}."
+            if failed_horizons
+            else "- PASS: No horizon exceeded 10% RMSE degradation threshold."
+        ),
         "",
         "## Charts",
         f"- Error by season chart: `{season_chart_path.as_posix()}`",
@@ -140,4 +182,3 @@ def build_report_markdown(
 def write_report(markdown_text: str, report_path: Path) -> None:
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(markdown_text, encoding="utf-8")
-

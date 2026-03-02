@@ -27,6 +27,7 @@ class ForecastResult:
     province: str
     as_of: str
     model_version: str
+    model_set_used: str
     forecast: List[ForecastPoint]
 
 
@@ -43,15 +44,20 @@ class ForecastService:
             raise ForecastError(404, "Model metadata not found. Train AI1 first.")
         self.metadata_path = metadata_path
         self.metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-        self.models: Dict[int, object] = {}
+        self.xgboost_models: Dict[int, object] = {}
+        self.baseline_models: Dict[int, object] = {}
         self._load_models()
 
     def _load_models(self) -> None:
         for horizon in self.metadata.get("horizons", []):
-            model_path = self.metadata_path.parent / f"salinity_day{horizon}.pkl"
-            if not model_path.exists():
-                raise ForecastError(404, f"Missing model file: {model_path.name}")
-            self.models[int(horizon)] = joblib.load(model_path)
+            xgb_path = self.metadata_path.parent / f"salinity_day{horizon}.pkl"
+            baseline_path = self.metadata_path.parent / f"baseline_day{horizon}.pkl"
+            if not xgb_path.exists():
+                raise ForecastError(404, f"Missing model file: {xgb_path.name}")
+            if not baseline_path.exists():
+                raise ForecastError(404, f"Missing model file: {baseline_path.name}")
+            self.xgboost_models[int(horizon)] = joblib.load(xgb_path)
+            self.baseline_models[int(horizon)] = joblib.load(baseline_path)
 
     def _load_daily_dataset(self) -> pd.DataFrame:
         artifacts = self.metadata.get("artifacts", {})
@@ -74,10 +80,30 @@ class ForecastService:
             use_supabase_fallback=use_supabase_fallback,
         )
 
-    def forecast(self, province: str, as_of: Optional[str] = None) -> ForecastResult:
+    def _resolve_model(self, horizon: int, model_set: str) -> object:
+        if model_set == "xgboost":
+            return self.xgboost_models[int(horizon)]
+        if model_set == "baseline":
+            return self.baseline_models[int(horizon)]
+
+        champion_map = self.metadata.get("champion_by_horizon", {})
+        champion = champion_map.get(f"day{horizon}", "xgboost")
+        if champion == "baseline_linear":
+            return self.baseline_models[int(horizon)]
+        return self.xgboost_models[int(horizon)]
+
+    def forecast(
+        self,
+        province: str,
+        as_of: Optional[str] = None,
+        model_set: str = "champion",
+    ) -> ForecastResult:
         normalized_province = normalize_province_name(province or "")
         if not normalized_province:
             raise ForecastError(400, "province is required.")
+        requested_model_set = (model_set or "champion").strip().lower()
+        if requested_model_set not in {"champion", "baseline", "xgboost"}:
+            raise ForecastError(400, "model_set must be one of: champion, baseline, xgboost.")
         if normalized_province not in self.metadata.get("provinces", []):
             raise ForecastError(404, f"No model/data for province: {province}")
 
@@ -110,7 +136,8 @@ class ForecastService:
         x_latest = x_latest[expected_cols]
 
         points: List[ForecastPoint] = []
-        for horizon, model in sorted(self.models.items()):
+        for horizon in sorted(self.xgboost_models.keys()):
+            model = self._resolve_model(horizon=int(horizon), model_set=requested_model_set)
             pred = float(model.predict(x_latest)[0])
             points.append(
                 ForecastPoint(
@@ -124,6 +151,6 @@ class ForecastService:
             province=normalized_province,
             as_of=requested_as_of.strftime("%Y-%m-%d"),
             model_version=self.metadata.get("model_version", "unknown"),
+            model_set_used=requested_model_set,
             forecast=points,
         )
-
