@@ -45,7 +45,6 @@ export const Gauge: React.FC<GaugeProps> = ({
     // SVG geometry
     const radius = 40;
     const strokeWidth = 8;
-    const center = 50;
     // Semi-circle arc: 180 degrees
     const circumference = Math.PI * radius;
     const strokeDashoffset = circumference * (1 - percentage);

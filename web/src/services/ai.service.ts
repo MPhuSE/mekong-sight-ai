@@ -1,6 +1,11 @@
 import api from './api';
 
 export const aiService = {
+    getModelMetadata: async () => {
+        const response = await api.get('/ai/model/metadata');
+        return response.data;
+    },
+
     getReportCharts: async () => {
         const response = await api.get('/ai/reports/charts');
         return response.data;
@@ -20,6 +25,22 @@ export const aiService = {
         const query = params.toString();
         const suffix = query ? `?${query}` : '';
         const response = await api.get(`/ai/forecast7d/farm/${farmId}${suffix}`);
+        return response.data;
+    },
+
+    getRiskByFarm: async (farmId: string) => {
+        const response = await api.get(`/ai/risk/farm/${farmId}`);
+        return response.data;
+    },
+
+    getDecisionByFarm: async (farmId: string, currentDate?: string) => {
+        const params = new URLSearchParams();
+        if (currentDate) {
+            params.append('current_date', currentDate);
+        }
+        const query = params.toString();
+        const suffix = query ? `?${query}` : '';
+        const response = await api.get(`/ai/decision/farm/${farmId}${suffix}`);
         return response.data;
     },
 

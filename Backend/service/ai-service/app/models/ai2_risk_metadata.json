@@ -1,0 +1,38 @@
+{
+  "model_version": "20260310164119",
+  "created_at_utc": "2026-03-10T16:41:19.983832",
+  "feature_columns": [
+    "salinity",
+    "temperature",
+    "ph",
+    "sal_t-1",
+    "sal_t-3",
+    "sal_t-7",
+    "sal_3d_avg",
+    "sal_7d_avg",
+    "temp_7d_avg",
+    "sal_change_1d",
+    "sal_change_3d",
+    "month",
+    "day_of_year",
+    "is_dry_season",
+    "province_can tho",
+    "province_hau giang",
+    "province_kien giang",
+    "province_tra vinh"
+  ],
+  "labels": [
+    "High",
+    "Medium"
+  ],
+  "provinces": [
+    "Can Tho",
+    "Hau Giang",
+    "Kien Giang",
+    "Tra Vinh"
+  ],
+  "artifacts": {
+    "baseline_path": "/Users/macbook2024/Desktop/mekong-sight-ai/Backend/service/ai-service/app/models/ai2_risk_baseline.pkl",
+    "main_path": "/Users/macbook2024/Desktop/mekong-sight-ai/Backend/service/ai-service/app/models/ai2_risk_xgboost.pkl"
+  }
+}

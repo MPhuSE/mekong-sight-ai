@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import unicodedata
+from datetime import date
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
@@ -29,6 +31,18 @@ PROVINCE_MAP: Dict[str, str] = {
 SALINITY_COLUMNS = ("salinity_daily", "salinity", "salinity_ppt", "salinityppt")
 RAIN_COLUMNS = ("rain_mm", "rainfall_mm", "rain", "rainfall")
 TEMP_COLUMNS = ("temp_c", "temperature_c", "temperature", "temp")
+JSON_SALINITY_COLUMNS = ("Do_man", "do_man", "salinity", "salinity_ppt")
+JSON_PH_COLUMNS = ("pH", "ph")
+
+LOCATION_PROVINCE_MAP: Dict[str, str] = {
+    "cang long": "Tra Vinh",
+    "hau giang": "Hau Giang",
+    "kien giang": "Kien Giang",
+    "can tho": "Can Tho",
+    "xa no": "Can Tho",
+    "vam xang": "Can Tho",
+    "ox12": "Can Tho",
+}
 
 
 def _strip_accents(value: str) -> str:
@@ -66,6 +80,117 @@ def parse_province_from_address(address: str) -> Optional[str]:
         if province in PROVINCE_MAP.values():
             return province
     return normalize_province_name(text)
+
+
+def _parse_iso_week_date(file_name: str) -> Optional[date]:
+    match = re.search(r"tuan[_-](\d{1,2})_(\d{4})", file_name.lower())
+    if not match:
+        return None
+    week = int(match.group(1))
+    year = int(match.group(2))
+    if week < 1 or week > 53:
+        return None
+    try:
+        # ISO week: use Monday as anchor date for each report week.
+        return date.fromisocalendar(year, week, 1)
+    except ValueError:
+        return None
+
+
+def _province_from_location(location: str) -> Optional[str]:
+    if not location:
+        return None
+    base = _strip_accents(str(location)).lower()
+    base = re.sub(r"[^a-z0-9\s]", " ", base)
+    base = re.sub(r"\s+", " ", base).strip()
+    if not base:
+        return None
+
+    direct = normalize_province_name(base)
+    if direct in PROVINCE_MAP.values():
+        return direct
+
+    for hint, province in LOCATION_PROVINCE_MAP.items():
+        if hint in base:
+            return province
+
+    parsed = parse_province_from_address(str(location))
+    return parsed if parsed in PROVINCE_MAP.values() else None
+
+
+def load_salinity_json_folder(folder: Path) -> pd.DataFrame:
+    if not folder.exists() or not folder.is_dir():
+        raise ValueError(f"JSON folder does not exist: {folder}")
+
+    rows: List[Dict[str, object]] = []
+    for path in sorted(folder.glob("*.json")):
+        report_date = _parse_iso_week_date(path.name)
+        if report_date is None:
+            continue
+
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+
+        data = payload.get("data", []) if isinstance(payload, dict) else []
+        if not isinstance(data, list):
+            continue
+
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            location = item.get("location")
+            province = _province_from_location(str(location or ""))
+            if not province:
+                continue
+
+            salinity_val = None
+            for key in JSON_SALINITY_COLUMNS:
+                if key in item:
+                    salinity_val = item.get(key)
+                    break
+            if salinity_val is None:
+                continue
+
+            try:
+                salinity = float(salinity_val)
+            except (TypeError, ValueError):
+                continue
+
+            ph_value = None
+            for key in JSON_PH_COLUMNS:
+                if key in item:
+                    try:
+                        ph_value = float(item.get(key)) if item.get(key) is not None else None
+                    except (TypeError, ValueError):
+                        ph_value = None
+                    break
+
+            rows.append(
+                {
+                    "date": pd.Timestamp(report_date),
+                    "province": province,
+                    "salinity_ppt": salinity,
+                    "ph": ph_value,
+                    "source_file": path.name,
+                    "source_location": str(location or "").strip(),
+                }
+            )
+
+    if not rows:
+        return pd.DataFrame(columns=["date", "province", "salinity_ppt", "ph", "source_file", "source_location"])
+
+    frame = pd.DataFrame(rows)
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce").dt.normalize()
+    frame["province"] = frame["province"].apply(normalize_province_name)
+    frame["salinity_ppt"] = pd.to_numeric(frame["salinity_ppt"], errors="coerce")
+    frame = frame.dropna(subset=["date", "province", "salinity_ppt"])
+    frame = frame.sort_values(["date", "province", "source_file"]).drop_duplicates(
+        subset=["date", "province", "salinity_ppt", "source_location"],
+        keep="first",
+    )
+    return frame.reset_index(drop=True)
 
 
 def _detect_column(columns: Iterable[str], candidates: Iterable[str]) -> Optional[str]:
@@ -163,7 +288,8 @@ def load_supabase_daily_dataset() -> pd.DataFrame:
 
 
 def _fill_weather_gaps(frame: pd.DataFrame) -> pd.DataFrame:
-    def _fill_group(group: pd.DataFrame) -> pd.DataFrame:
+    parts: List[pd.DataFrame] = []
+    for province, group in frame.groupby("province", dropna=False):
         ordered = group.sort_values("date").copy()
         ordered["rain_mm"] = (
             ordered["rain_mm"]
@@ -177,9 +303,12 @@ def _fill_weather_gaps(frame: pd.DataFrame) -> pd.DataFrame:
             .ffill(limit=3)
             .bfill(limit=3)
         )
-        return ordered
+        ordered["province"] = province
+        parts.append(ordered)
 
-    return frame.groupby("province", group_keys=False).apply(_fill_group)
+    if not parts:
+        return frame.copy()
+    return pd.concat(parts, ignore_index=True).sort_values(["province", "date"]).reset_index(drop=True)
 
 
 def build_daily_dataset(
@@ -222,4 +351,3 @@ def build_daily_dataset(
     merged = merged.dropna(subset=["date", "province", "salinity_daily", "rain_mm", "temp_c"])
     merged = merged.sort_values(["province", "date"]).reset_index(drop=True)
     return merged[["date", "province", "salinity_daily", "rain_mm", "temp_c"]]
-

@@ -58,6 +58,13 @@ export const Users: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
+                            {loading && (
+                                <tr>
+                                    <td colSpan={6} style={{ padding: '1.2rem', color: 'var(--text-dim)' }}>
+                                        Đang tải danh sách người dùng...
+                                    </td>
+                                </tr>
+                            )}
                             {users.map((user) => (
                                 <tr key={user.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s' }} className="table-row-hover">
                                     <td style={{ padding: '1.2rem' }}>

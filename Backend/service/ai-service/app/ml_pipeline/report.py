@@ -3,12 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Iterable, List
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
+
+try:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    HAS_PLOT_LIBS = True
+except Exception:
+    HAS_PLOT_LIBS = False
 
 
 def _markdown_table(df: pd.DataFrame) -> str:
@@ -26,6 +32,8 @@ def _markdown_table(df: pd.DataFrame) -> str:
 
 
 def generate_actual_vs_pred_charts(predictions: pd.DataFrame, chart_dir: Path) -> List[Path]:
+    if not HAS_PLOT_LIBS:
+        return []
     chart_dir.mkdir(parents=True, exist_ok=True)
     saved_paths: List[Path] = []
     target_horizons = list(range(1, 8))
@@ -58,6 +66,8 @@ def generate_actual_vs_pred_charts(predictions: pd.DataFrame, chart_dir: Path) -
 
 
 def generate_error_by_season_chart(season_df: pd.DataFrame, chart_dir: Path) -> Path:
+    if not HAS_PLOT_LIBS:
+        return chart_dir / "error_by_season.png"
     chart_dir.mkdir(parents=True, exist_ok=True)
     subset = season_df[
         (season_df["model"] == "xgboost")
@@ -109,7 +119,7 @@ def build_report_markdown(
     lstm_view = lstm_metrics_df.copy()
     for column in ("mae", "rmse"):
         if column in lstm_view.columns:
-            lstm_view[column] = lstm_view[column].round(4)
+            lstm_view[column] = pd.to_numeric(lstm_view[column], errors="coerce").round(4)
     regression_view = regression_check_df.copy()
     if "pct_change" in regression_view.columns:
         regression_view["pct_change"] = (regression_view["pct_change"] * 100.0).round(2).astype(str) + "%"

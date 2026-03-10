@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { farmService } from '../services/farm.service';
 import { aiService } from '../services/ai.service';
 import { iotService } from '../services/iot.service';
-import { Droplets, Thermometer, Wind, AlertCircle, TrendingUp, History, Loader2, Database, RefreshCcw, Brain, CheckCircle2, ChevronRight, Cloud, Sun, CloudRain, Sparkles, MapPin } from 'lucide-react';
+import { Droplets, Thermometer, Wind, TrendingUp, History, Loader2, Database, RefreshCcw, Brain, Sun, CloudRain, Sparkles } from 'lucide-react';
 import { Gauge } from '../components/Gauge';
 
 export const Dashboard: React.FC = () => {
-    const [stats, setStats] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
@@ -29,9 +28,6 @@ export const Dashboard: React.FC = () => {
                 currentId = farmlist[0].id;
                 setSelectedFarmId(currentId);
             }
-
-            // Calculate total area (or specific area) based on selection
-            const currentFarm = farmlist.find((f: any) => f.id === currentId);
 
             const sensorData = await iotService.getReadings();
             const allReadings = sensorData.data || [];
@@ -281,7 +277,7 @@ export const Dashboard: React.FC = () => {
                                                 {new Date(r.timestamp).toLocaleTimeString()}
                                             </td>
                                             <td style={{ padding: '12px', fontWeight: 500 }}>
-                                                {r.iot_devices?.name || 'Cảm biến ' + (i + 1)}
+                                                {r.iot_devices?.device_name || 'Cảm biến ' + (i + 1)}
                                             </td>
                                             <td style={{ padding: '12px' }}>
                                                 <div style={{ display: 'flex', gap: '15px' }}>

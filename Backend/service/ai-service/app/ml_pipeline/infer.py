@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 import joblib
 import pandas as pd
 
-from .config import DEFAULT_METADATA_PATH
+from .config import DEFAULT_METADATA_PATH, DEFAULT_PREPARED_DAILY_CSV, DEFAULT_WEATHER_CSV
 from .data_loader import build_daily_dataset, normalize_province_name
 from .feature_builder import build_feature_frame, encode_features
 
@@ -56,24 +56,65 @@ class ForecastService:
                 raise ForecastError(404, f"Missing model file: {xgb_path.name}")
             if not baseline_path.exists():
                 raise ForecastError(404, f"Missing model file: {baseline_path.name}")
-            self.xgboost_models[int(horizon)] = joblib.load(xgb_path)
-            self.baseline_models[int(horizon)] = joblib.load(baseline_path)
+            try:
+                self.xgboost_models[int(horizon)] = joblib.load(xgb_path)
+                self.baseline_models[int(horizon)] = joblib.load(baseline_path)
+            except Exception as exc:
+                message = str(exc)
+                if "libomp" in message or "Library not loaded" in message or "libxgboost" in message:
+                    raise ForecastError(
+                        500,
+                        "XGBoost Library could not be loaded. Mac users: run `brew install libomp`, then restart ai-service.",
+                    ) from exc
+                raise ForecastError(500, f"Failed to load model artifacts: {message}") from exc
 
     def _load_daily_dataset(self) -> pd.DataFrame:
         artifacts = self.metadata.get("artifacts", {})
-        prepared_path = Path(artifacts.get("prepared_daily_csv", ""))
-        if prepared_path.exists():
-            frame = pd.read_csv(prepared_path)
-            frame["date"] = pd.to_datetime(frame["date"], errors="coerce").dt.normalize()
-            return frame
+        prepared_raw = artifacts.get("prepared_daily_csv", "")
+
+        # Try multiple candidates for prepared dataset:
+        # 1) Path stored in metadata (may be absolute Windows path or relative)
+        # 2) Default prepared dataset path inside this repo.
+        prepared_candidates = []
+        if prepared_raw:
+            prepared_candidates.append(Path(prepared_raw))
+            # Handle Windows-style backslashes stored in metadata when running on POSIX.
+            if "\\" in prepared_raw:
+                prepared_candidates.append(Path(prepared_raw.replace("\\", "/")))
+        prepared_candidates.append(DEFAULT_PREPARED_DAILY_CSV)
+
+        for candidate in prepared_candidates:
+            try:
+                if candidate and candidate.exists():
+                    frame = pd.read_csv(candidate)
+                    frame["date"] = pd.to_datetime(frame["date"], errors="coerce").dt.normalize()
+                    return frame
+            except Exception:
+                continue
 
         data_sources = self.metadata.get("data_sources", {})
-        weather_csv = Path(data_sources.get("weather_csv", ""))
+        weather_raw = data_sources.get("weather_csv", "")
+
+        # Resolve weather CSV similarly: metadata may contain a Windows path like "app\\data\\...".
+        weather_candidates = []
+        if weather_raw:
+            weather_candidates.append(Path(weather_raw))
+            if "\\" in weather_raw:
+                weather_candidates.append(Path(weather_raw.replace("\\", "/")))
+        weather_candidates.append(DEFAULT_WEATHER_CSV)
+
+        weather_csv: Optional[Path] = None
+        for candidate in weather_candidates:
+            if candidate and candidate.exists():
+                weather_csv = candidate
+                break
+
+        if weather_csv is None:
+            raise ForecastError(500, "Weather CSV not found to rebuild inference dataset.")
+
         local_dataset_raw = data_sources.get("local_dataset")
         local_dataset = Path(local_dataset_raw) if local_dataset_raw else None
         use_supabase_fallback = bool(data_sources.get("supabase_fallback", False))
-        if not weather_csv.exists():
-            raise ForecastError(500, "Weather CSV not found to rebuild inference dataset.")
         return build_daily_dataset(
             weather_csv_path=weather_csv,
             local_dataset_path=local_dataset if local_dataset and local_dataset.exists() else None,

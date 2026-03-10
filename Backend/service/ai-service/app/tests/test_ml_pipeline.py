@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from app.ml_pipeline.data_loader import normalize_province_name, parse_province_from_address
+from app.ml_pipeline.data_loader import load_salinity_json_folder
 from app.ml_pipeline.evaluate import build_rolling_origin_windows
 from app.ml_pipeline.feature_builder import (
     build_feature_frame,
@@ -23,6 +24,28 @@ class TestDataLoader(unittest.TestCase):
         self.assertEqual(normalize_province_name("Sóc Trăng"), "Soc Trang")
         self.assertEqual(parse_province_from_address("Tran De, Soc Trang"), "Soc Trang")
         self.assertEqual(parse_province_from_address("Hoa Binh, Bac Lieu"), "Bac Lieu")
+
+    def test_load_salinity_json_folder(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            folder = Path(tmpdir)
+            payload = {
+                "data": [
+                    {"location": "Càng Long", "Do_man": 4.0, "pH": 6.5, "page": 2},
+                    {"location": "Hậu Giang", "Do_man": 8.2, "pH": None, "page": 2},
+                    {"location": "OX12 (Ngã 3 sông Cần Thơ)", "Do_man": 0.3, "pH": 6.1, "page": 6},
+                ],
+                "summary": {"ket_luan": "test"},
+            }
+            (folder / "bt_nmt_tuan_11_2025.json").write_text(
+                __import__("json").dumps(payload, ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+            result = load_salinity_json_folder(folder)
+            self.assertEqual(len(result), 3)
+            self.assertIn("Tra Vinh", set(result["province"]))
+            self.assertIn("Hau Giang", set(result["province"]))
+            self.assertIn("Can Tho", set(result["province"]))
 
 
 class TestFeatureBuilder(unittest.TestCase):

@@ -10,7 +10,7 @@
     "scripts": {
         "start": "docker-compose up",
         "build": "turbo run build",
-        "dev": "concurrently -n \"AUTH,FARM,IOT,NOTIF,AI,WEB\" -c \"blue,green,magenta,yellow,cyan,white\" \"npm run dev --workspace=auth-service\" \"npm run dev --workspace=farm-service\" \"npm run dev --workspace=iot-service\" \"npm run dev --workspace=notification-service\" \"cd Backend/service/ai-service && python app/main.py\" \"npm run dev --workspace=web\"",
+        "dev": "concurrently -n \"AUTH,FARM,IOT,NOTIF,AI,WEB\" -c \"blue,green,magenta,yellow,cyan,white\" \"npm run dev --workspace=auth-service\" \"npm run dev --workspace=farm-service\" \"npm run dev --workspace=iot-service\" \"npm run dev --workspace=notification-service\" \"cd Backend/service/ai-service && . .venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload\" \"npm run dev --workspace=web\"",
         "lint": "turbo run lint",
         "test": "turbo run test"
     },

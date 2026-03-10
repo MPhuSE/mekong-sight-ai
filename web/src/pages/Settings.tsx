@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { User, Bell, Shield, Save, Camera, Loader2, MapPin, Settings as SettingsIcon, Cpu, Navigation2 } from 'lucide-react';
 import { getProfile, updateProfile } from '../services/user.service';
 import { iotService } from '../services/iot.service';
+import { aiService } from '../services/ai.service';
 
 export const Settings: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('profile');
     const [devices, setDevices] = useState<any[]>([]);
+    const [aiSupportedProvinces, setAiSupportedProvinces] = useState<string[]>([]);
     const [profile, setProfile] = useState<any>({
         full_name: '',
         email: '',
@@ -40,6 +42,11 @@ export const Settings: React.FC = () => {
                 const deviceData = await iotService.getDevices();
                 // In a real app, we'd have /iot/devices
                 setDevices(deviceData.data.map((r: any) => r.iot_devices).filter((v: any, i: any, a: any) => a.findIndex((t: any) => t.id === v.id) === i));
+
+                // Fetch AI supported provinces (from model metadata)
+                const metadataResp = await aiService.getModelMetadata();
+                const provinces = (metadataResp?.data?.provinces || []).filter(Boolean);
+                setAiSupportedProvinces(provinces);
 
             } catch (err) {
                 console.error("Failed to fetch data:", err);
@@ -188,11 +195,26 @@ export const Settings: React.FC = () => {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
                                     <div>
                                         <label className="text-secondary" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem' }}>Tỉnh / Thành phố</label>
-                                        <input
-                                            placeholder="Tỉnh/Thành"
-                                            value={profile.province || ''}
-                                            onChange={e => setProfile({ ...profile, province: e.target.value })}
-                                        />
+                                        {aiSupportedProvinces.length > 0 ? (
+                                            <select
+                                                value={profile.province || ''}
+                                                onChange={e => setProfile({ ...profile, province: e.target.value })}
+                                                style={{ width: '100%', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-subtle)', borderRadius: '12px', color: 'white' }}
+                                            >
+                                                <option value="">-- Chọn tỉnh --</option>
+                                                {aiSupportedProvinces.map((prov) => (
+                                                    <option key={prov} value={prov}>
+                                                        {prov}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <input
+                                                placeholder="Tỉnh/Thành"
+                                                value={profile.province || ''}
+                                                onChange={e => setProfile({ ...profile, province: e.target.value })}
+                                            />
+                                        )}
                                     </div>
                                     <div>
                                         <label className="text-secondary" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem' }}>Quận / Huyện</label>

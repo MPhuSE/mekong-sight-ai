@@ -40,6 +40,7 @@ from .config import (
     grid_product,
 )
 from .data_loader import build_daily_dataset
+from .data_loader import load_local_combined_csv, load_salinity_json_folder
 from .evaluate import (
     build_rolling_origin_windows,
     evaluate_horizon_predictions,
@@ -543,6 +544,7 @@ def run_training(
     use_supabase_fallback: bool = True,
     quick_mode: bool = False,
     run_lstm_pilot: bool = True,
+    salinity_json_dir: Optional[Path] = None,
 ) -> Dict[str, object]:
     ensure_directories()
     mode_label = "quick" if quick_mode else "full"
@@ -552,9 +554,44 @@ def run_training(
     if DEFAULT_METRICS_CSV.exists():
         previous_metrics = pd.read_csv(DEFAULT_METRICS_CSV)
 
+    effective_local_dataset = local_dataset
+    json_rows_imported = 0
+    json_provinces: List[str] = []
+    if salinity_json_dir:
+        json_df = load_salinity_json_folder(salinity_json_dir)
+        json_rows_imported = int(len(json_df))
+        json_provinces = sorted(json_df["province"].dropna().unique().tolist()) if not json_df.empty else []
+        if not json_df.empty:
+            if local_dataset and local_dataset.exists():
+                base_local_df = load_local_combined_csv(local_dataset)
+            else:
+                base_local_df = pd.DataFrame(columns=["date", "province", "salinity_ppt"])
+
+            combined_df = pd.concat(
+                [base_local_df, json_df[["date", "province", "salinity_ppt", "ph"]]],
+                ignore_index=True,
+                sort=False,
+            )
+            combined_df["date"] = pd.to_datetime(combined_df["date"], errors="coerce").dt.normalize()
+            combined_df = combined_df.dropna(subset=["date", "province", "salinity_ppt"])
+            combined_df = combined_df.sort_values(["date", "province"]).drop_duplicates(
+                subset=["date", "province"],
+                keep="last",
+            )
+
+            augmented_path = weather_csv.parent / "local_dataset_augmented_from_json.csv"
+            combined_df.to_csv(augmented_path, index=False)
+            effective_local_dataset = augmented_path
+            print(
+                f"[AI1] Imported {json_rows_imported} JSON salinity rows "
+                f"({', '.join(json_provinces) if json_provinces else 'N/A'}) -> {augmented_path}"
+            )
+        else:
+            print(f"[AI1] No valid salinity records found in JSON folder: {salinity_json_dir}")
+
     daily_df = build_daily_dataset(
         weather_csv_path=weather_csv,
-        local_dataset_path=local_dataset,
+        local_dataset_path=effective_local_dataset,
         use_supabase_fallback=use_supabase_fallback,
     )
     daily_df.to_csv(DEFAULT_PREPARED_DAILY_CSV, index=False)
@@ -674,8 +711,11 @@ def run_training(
         },
         "data_sources": {
             "weather_csv": str(weather_csv),
-            "local_dataset": str(local_dataset) if local_dataset else None,
+            "local_dataset": str(effective_local_dataset) if effective_local_dataset else None,
             "supabase_fallback": use_supabase_fallback,
+            "salinity_json_dir": str(salinity_json_dir) if salinity_json_dir else None,
+            "json_rows_imported": json_rows_imported,
+            "json_provinces_imported": json_provinces,
         },
     }
     DEFAULT_METADATA_PATH.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -728,6 +768,12 @@ def main() -> None:
         action="store_true",
         help="Skip LSTM pilot training.",
     )
+    parser.add_argument(
+        "--salinity-json-dir",
+        type=Path,
+        default=None,
+        help="Optional folder containing weekly salinity JSON files (Do_man/location schema).",
+    )
     args = parser.parse_args()
 
     local_dataset = args.local_dataset if args.local_dataset else args.weather_csv
@@ -737,6 +783,7 @@ def main() -> None:
         use_supabase_fallback=not args.no_supabase_fallback,
         quick_mode=args.quick,
         run_lstm_pilot=not args.skip_lstm,
+        salinity_json_dir=args.salinity_json_dir,
     )
 
 

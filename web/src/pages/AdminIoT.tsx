@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { iotService } from '../services/iot.service';
 import { farmService } from '../services/farm.service';
-import { Cpu, Plus, Search, MoreVertical, RefreshCw, Radio, Zap, Activity, Loader2, Play, StopCircle } from 'lucide-react';
+import { Cpu, Plus, Search, MoreVertical, RefreshCw, Radio, Zap, Activity, Loader2, Play, StopCircle, Trash2 } from 'lucide-react';
 
 export const AdminIoT: React.FC = () => {
     const [devices, setDevices] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [seedingDeviceEui, setSeedingDeviceEui] = useState<string>('');
+    const [seedingAll, setSeedingAll] = useState(false);
 
     // Simulation State
     const [isSimulating, setIsSimulating] = useState(false);
@@ -87,6 +89,38 @@ export const AdminIoT: React.FC = () => {
         }
     };
 
+    const handleDeleteDevice = async (device: any) => {
+        if (!confirm(`Xóa thiết bị ${device.device_name} (${device.device_eui})?`)) return;
+        try {
+            await iotService.deleteDevice(device.id);
+            await fetchDevices();
+            alert('Đã xóa thiết bị.');
+        } catch (err: any) {
+            console.error(err);
+            const msg = err?.response?.data?.message || err?.message || 'Lỗi khi xóa thiết bị.';
+            alert(msg);
+        }
+    };
+
+    const handleSeedHistory = async (device?: any) => {
+        const deviceEui = device?.device_eui;
+        const target = deviceEui ? `${device.device_name} (${deviceEui})` : 'toàn bộ thiết bị đã gán farm';
+        if (!confirm(`Tạo dữ liệu giả lập 7 ngày cho ${target}?`)) return;
+        try {
+            if (deviceEui) setSeedingDeviceEui(deviceEui);
+            else setSeedingAll(true);
+            const result = await iotService.seedSimulatedHistory(deviceEui, 7, 60);
+            alert(result?.message || 'Đã seed dữ liệu giả lập 7 ngày.');
+        } catch (err: any) {
+            console.error(err);
+            const msg = err?.response?.data?.message || err?.message || 'Seed dữ liệu thất bại.';
+            alert(msg);
+        } finally {
+            setSeedingDeviceEui('');
+            setSeedingAll(false);
+        }
+    };
+
     const toggleSimulation = () => {
         if (isSimulating) {
             if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
@@ -106,65 +140,83 @@ export const AdminIoT: React.FC = () => {
         const runStep = async () => {
             console.log("Simulating realistic batch...");
             const currentDevices = devicesRef.current;
+            const now = new Date();
+            const month = now.getMonth() + 1;
+            const hour = now.getHours() + now.getMinutes() / 60;
+            const isDrySeason = [12, 1, 2, 3, 4].includes(month);
 
             for (const device of currentDevices) {
-                // Init state if needed (with Realistic Starting Points for Mekong Delta)
+                // Init state to match AI1 train distribution instead of wide random ranges.
                 if (!deviceStatesRef.current[device.device_eui]) {
+                    const salinityTarget = isDrySeason ? 5.0 : 1.2;
                     deviceStatesRef.current[device.device_eui] = {
-                        // Shrimp/Rice Model: Salinity 10-25, Temp 26-32, pH 7.5-8.5
-                        salinity: 15 + Math.random() * 5, // Start 15-20 ppt
-                        temperature: 28 + Math.random() * 2, // Start 28-30°C
-                        ph: 7.8 + (Math.random() - 0.5) * 0.4, // Start 7.6-8.0
+                        // AI1 train stats reference:
+                        // salinity wet median ~1.1, dry median ~4.9, max ~7.6
+                        salinity: salinityTarget + (Math.random() - 0.5) * (isDrySeason ? 1.2 : 0.7),
+                        temperature: 29 + (Math.random() - 0.5) * 1.2, // mostly 26.9-31.1
+                        ph: 7.47 + (Math.random() - 0.5) * 0.18,
+                        water_level: (isDrySeason ? 58 : 72) + (Math.random() - 0.5) * 8,
+                        battery_voltage: 4.05 - Math.random() * 0.08,
 
-                        // Trends (Very slow natural drift)
+                        // Device-specific bias + smooth drift
+                        salinity_bias: (Math.random() - 0.5) * 0.8,
                         trend_sal: (Math.random() - 0.5) * 0.02,
                         trend_temp: (Math.random() - 0.5) * 0.01,
-                        trend_ph: (Math.random() - 0.5) * 0.005
+                        trend_ph: (Math.random() - 0.5) * 0.003
                     };
                 }
 
                 let state = deviceStatesRef.current[device.device_eui];
+                const targetSalinity = (isDrySeason ? 5.0 : 1.2) + state.salinity_bias;
+                const targetTemp = 29 + Math.sin((hour / 24) * Math.PI * 2) * 1.1;
+                const targetPh = 7.47;
 
-                // Apply slow trend (Drift)
-                state.salinity += state.trend_sal;
-                state.temperature += state.trend_temp;
-                state.ph += state.trend_ph;
+                // Mean reversion + drift so data follows seasonal profile like train set.
+                state.salinity += state.trend_sal + (targetSalinity - state.salinity) * 0.06;
+                state.temperature += state.trend_temp + (targetTemp - state.temperature) * 0.05;
+                state.ph += state.trend_ph + (targetPh - state.ph) * 0.04;
+                state.water_level += ((isDrySeason ? 58 : 72) - state.water_level) * 0.05;
 
                 // Add small noise (Sensor jitter)
-                const noise_sal = (Math.random() - 0.5) * 0.02;
-                const noise_temp = (Math.random() - 0.5) * 0.01;
-                const noise_ph = (Math.random() - 0.5) * 0.01;
+                const noise_sal = (Math.random() - 0.5) * 0.10;
+                const noise_temp = (Math.random() - 0.5) * 0.25;
+                const noise_ph = (Math.random() - 0.5) * 0.03;
+                const noise_water = (Math.random() - 0.5) * 1.6;
 
                 // Bounds check & Reverse Trend (Natural limits)
-                // Salinity: Natural drift towards center if too extreme
-                if (state.salinity < 5) { state.trend_sal = Math.abs(state.trend_sal) + 0.005; }
-                if (state.salinity > 30) { state.trend_sal = -Math.abs(state.trend_sal) - 0.005; }
+                // Salinity aligned to training range ~0.2 to 7.6 (allow tiny buffer)
+                if (state.salinity < 0.2) { state.trend_sal = Math.abs(state.trend_sal) + 0.01; }
+                if (state.salinity > 8.5) { state.trend_sal = -Math.abs(state.trend_sal) - 0.01; }
 
-                // Temp: 25 - 35
+                // Temp aligned to training range 26.0 - 32.5
                 if (state.temperature < 26) { state.trend_temp = Math.abs(state.trend_temp) + 0.002; }
-                if (state.temperature > 34) { state.trend_temp = -Math.abs(state.trend_temp) - 0.002; }
+                if (state.temperature > 32.8) { state.trend_temp = -Math.abs(state.trend_temp) - 0.002; }
 
-                // pH: 7 - 9
-                if (state.ph < 7.2) { state.trend_ph = Math.abs(state.trend_ph) + 0.001; }
-                if (state.ph > 8.8) { state.trend_ph = -Math.abs(state.trend_ph) - 0.001; }
+                // pH aligned around 7.47
+                if (state.ph < 7.1) { state.trend_ph = Math.abs(state.trend_ph) + 0.001; }
+                if (state.ph > 7.85) { state.trend_ph = -Math.abs(state.trend_ph) - 0.001; }
 
-                // Occasional Trend Change (Weather event / Tide change)
+                // Occasional weather/tide shifts.
                 if (Math.random() > 0.99) {
-                    state.trend_sal = (Math.random() - 0.5) * 0.03;
+                    state.trend_sal = (Math.random() - 0.5) * 0.04;
                     state.trend_temp = (Math.random() - 0.5) * 0.02;
                 }
 
                 // Calculate display values (State + Noise)
-                const displaySal = Math.max(0, state.salinity + noise_sal);
-                const displayTemp = Math.max(0, state.temperature + noise_temp);
-                const displayPh = Math.max(0, state.ph + noise_ph);
+                const displaySal = Math.min(8.5, Math.max(0.2, state.salinity + noise_sal));
+                const displayTemp = Math.min(32.8, Math.max(26.0, state.temperature + noise_temp));
+                const displayPh = Math.min(7.85, Math.max(7.1, state.ph + noise_ph));
+                const displayWater = Math.min(90, Math.max(45, state.water_level + noise_water));
+                state.battery_voltage = Math.max(3.65, state.battery_voltage - Math.random() * 0.0008);
 
                 // Send
                 try {
                     await iotService.simulateReading(device.device_eui, {
                         salinity: displaySal.toFixed(2),
                         temperature: displayTemp.toFixed(2),
-                        ph: displayPh.toFixed(2)
+                        ph: displayPh.toFixed(2),
+                        water_level: displayWater.toFixed(1),
+                        battery_voltage: state.battery_voltage.toFixed(2),
                     });
                 } catch (e) { console.error(e); }
             }
@@ -195,6 +247,10 @@ export const AdminIoT: React.FC = () => {
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button className="secondary" onClick={fetchDevices}>
                         <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                    <button className="secondary" onClick={() => handleSeedHistory()} disabled={seedingAll}>
+                        {seedingAll ? <Loader2 size={18} className="animate-spin" /> : <Activity size={18} />}
+                        Seed 7 ngày
                     </button>
                     <button
                         className={`secondary ${isSimulating ? 'status-danger' : ''}`}
@@ -311,8 +367,29 @@ export const AdminIoT: React.FC = () => {
                                             >
                                                 <Play size={16} color="var(--primary-green)" />
                                             </button>
+                                            <button
+                                                className="secondary"
+                                                style={{ padding: '8px', borderRadius: '50%' }}
+                                                onClick={() => handleSeedHistory(device)}
+                                                title="Seed dữ liệu giả lập 7 ngày"
+                                                disabled={seedingDeviceEui === device.device_eui}
+                                            >
+                                                {seedingDeviceEui === device.device_eui ? (
+                                                    <Loader2 size={16} className="animate-spin" />
+                                                ) : (
+                                                    <Activity size={16} color="#3b82f6" />
+                                                )}
+                                            </button>
                                             <button className="secondary" style={{ padding: '8px', borderRadius: '50%' }}>
                                                 <MoreVertical size={16} />
+                                            </button>
+                                            <button
+                                                className="secondary"
+                                                style={{ padding: '8px', borderRadius: '50%', color: '#ef4444' }}
+                                                onClick={() => handleDeleteDevice(device)}
+                                                title="Xóa thiết bị"
+                                            >
+                                                <Trash2 size={16} />
                                             </button>
                                         </td>
                                     </tr>

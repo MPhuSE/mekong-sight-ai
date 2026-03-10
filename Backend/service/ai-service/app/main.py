@@ -5,12 +5,19 @@ import csv
 import io
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-import google.generativeai as genai
+import sys
+
+try:
+    import google.generativeai as genai  # type: ignore[import]
+except ImportError:
+    genai = None  # type: ignore[assignment]
 import numpy as np
+import pandas as pd
+import joblib
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +26,13 @@ from PIL import Image
 from pydantic import BaseModel
 from supabase import Client, create_client
 
-from app.ml_pipeline.config import DEFAULT_METADATA_PATH
+# Allow running from either repo root or `app/` directory.
+# Without this, `python main.py` (when CWD is `app/`) cannot resolve `import app.*`.
+_SERVICE_ROOT = Path(__file__).resolve().parent.parent
+if str(_SERVICE_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SERVICE_ROOT))
+
+from app.ml_pipeline.config import DEFAULT_METADATA_PATH, MODELS_DIR
 from app.ml_pipeline.infer import ForecastError, ForecastResult, ForecastService
 from app.ml_pipeline.data_loader import parse_province_from_address
 
@@ -63,7 +76,7 @@ def _require_supabase() -> Client:
 
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-if GEMINI_API_KEY:
+if GEMINI_API_KEY and genai is not None:
     try:
         genai.configure(api_key=GEMINI_API_KEY)
         gemini_model = genai.GenerativeModel("gemini-2.5-flash")
@@ -125,6 +138,8 @@ class Forecast7DResponse(BaseModel):
 
 _forecast_service: Optional[ForecastService] = None
 _forecast_service_metadata_mtime: Optional[float] = None
+_ai2_bundle: Optional[dict] = None
+_ai2_bundle_mtime: Optional[tuple[float, float, float]] = None
 FARM_CODE_PROVINCE = {
     "ST": "Soc Trang",
     "BL": "Bac Lieu",
@@ -132,6 +147,9 @@ FARM_CODE_PROVINCE = {
     "BT": "Ben Tre",
     "CM": "Ca Mau",
 }
+AI2_METADATA_PATH = MODELS_DIR / "ai2_risk_metadata.json"
+AI2_MAIN_PATH = MODELS_DIR / "ai2_risk_xgboost.pkl"
+AI2_BASELINE_PATH = MODELS_DIR / "ai2_risk_baseline.pkl"
 
 
 def _read_csv_report(file_name: str):
@@ -162,6 +180,279 @@ def get_forecast_service() -> ForecastService:
         _forecast_service = ForecastService()
         _forecast_service_metadata_mtime = metadata_mtime
     return _forecast_service
+
+
+def _get_ai2_model_bundle() -> dict:
+    global _ai2_bundle, _ai2_bundle_mtime
+
+    if not AI2_METADATA_PATH.exists() or not AI2_MAIN_PATH.exists():
+        raise HTTPException(status_code=404, detail="AI2 model artifacts not found. Train AI2 first.")
+
+    baseline_mtime = AI2_BASELINE_PATH.stat().st_mtime if AI2_BASELINE_PATH.exists() else 0.0
+    current_mtime = (
+        AI2_METADATA_PATH.stat().st_mtime,
+        AI2_MAIN_PATH.stat().st_mtime,
+        baseline_mtime,
+    )
+    if _ai2_bundle is not None and _ai2_bundle_mtime == current_mtime:
+        return _ai2_bundle
+
+    metadata = json.loads(AI2_METADATA_PATH.read_text(encoding="utf-8"))
+    main_model = joblib.load(AI2_MAIN_PATH)
+    baseline_model = joblib.load(AI2_BASELINE_PATH) if AI2_BASELINE_PATH.exists() else None
+
+    _ai2_bundle = {
+        "metadata": metadata,
+        "main_model": main_model,
+        "baseline_model": baseline_model,
+    }
+    _ai2_bundle_mtime = current_mtime
+    return _ai2_bundle
+
+
+def _build_ai2_feature_row(
+    readings_df: pd.DataFrame,
+    feature_columns: list[str],
+    province: Optional[str],
+) -> tuple[pd.DataFrame, dict]:
+    if readings_df.empty:
+        raise HTTPException(status_code=422, detail="No sensor readings for this farm.")
+
+    readings_df = readings_df.copy()
+    readings_df["timestamp"] = pd.to_datetime(readings_df["timestamp"], errors="coerce")
+    readings_df["salinity"] = pd.to_numeric(readings_df["salinity"], errors="coerce")
+    readings_df["temperature"] = pd.to_numeric(readings_df["temperature"], errors="coerce")
+    readings_df["ph"] = pd.to_numeric(readings_df["ph"], errors="coerce")
+    readings_df = readings_df.dropna(subset=["timestamp", "salinity", "temperature"])
+    if readings_df.empty:
+        raise HTTPException(status_code=422, detail="Sensor readings invalid for AI2 inference.")
+
+    readings_df = readings_df.sort_values("timestamp")
+    latest = readings_df.iloc[-1]
+
+    sal = readings_df["salinity"].to_numpy(dtype=float)
+    temp = readings_df["temperature"].to_numpy(dtype=float)
+    ph_series = readings_df["ph"].dropna()
+
+    sal_t_1 = float(sal[-2]) if len(sal) >= 2 else float(sal[-1])
+    sal_t_3 = float(sal[-4]) if len(sal) >= 4 else sal_t_1
+    sal_t_7 = float(sal[-8]) if len(sal) >= 8 else sal_t_3
+    sal_3d_avg = float(np.mean(sal[-3:]))
+    sal_7d_avg = float(np.mean(sal[-7:]))
+    temp_7d_avg = float(np.mean(temp[-7:]))
+    sal_change_1d = float(sal[-1] - sal_t_1)
+    sal_change_3d = float(sal[-1] - sal_t_3)
+    ts = latest["timestamp"]
+    month = int(ts.month)
+    day_of_year = int(ts.dayofyear)
+    is_dry = 1 if month in (12, 1, 2, 3, 4) else 0
+
+    ph_value = float(ph_series.iloc[-1]) if not ph_series.empty else 7.4
+    base_values = {
+        "salinity": float(sal[-1]),
+        "temperature": float(temp[-1]),
+        "ph": ph_value,
+        "sal_t-1": sal_t_1,
+        "sal_t-3": sal_t_3,
+        "sal_t-7": sal_t_7,
+        "sal_3d_avg": sal_3d_avg,
+        "sal_7d_avg": sal_7d_avg,
+        "temp_7d_avg": temp_7d_avg,
+        "sal_change_1d": sal_change_1d,
+        "sal_change_3d": sal_change_3d,
+        "month": float(month),
+        "day_of_year": float(day_of_year),
+        "is_dry_season": float(is_dry),
+    }
+
+    row = {feature: 0.0 for feature in feature_columns}
+    for key, value in base_values.items():
+        if key in row:
+            row[key] = float(value)
+
+    province_key = (province or "").strip().lower()
+    if province_key:
+        dummy_col = f"province_{province_key}"
+        if dummy_col in row:
+            row[dummy_col] = 1.0
+
+    diagnostics = {
+        "latest_timestamp": str(ts),
+        "latest_salinity": float(sal[-1]),
+        "latest_temperature": float(temp[-1]),
+        "latest_ph": ph_value,
+        "history_points": int(len(readings_df)),
+        "province": province or "",
+    }
+    return pd.DataFrame([row], columns=feature_columns), diagnostics
+
+
+def _infer_province_from_farm(farm: dict) -> Optional[str]:
+    province = parse_province_from_address(farm.get("address", ""))
+    if province:
+        return province
+    farm_code = str(farm.get("farm_code", "")).upper()
+    prefix = farm_code.split("_")[0]
+    return FARM_CODE_PROVINCE.get(prefix)
+
+
+def _load_farm_readings_df(client: Client, farm_id: str) -> pd.DataFrame:
+    devices_res = client.table("iot_devices").select("id").eq("farm_id", farm_id).execute()
+    device_rows = devices_res.data or []
+    device_ids = [str(item["id"]) for item in device_rows if item.get("id")]
+    if not device_ids:
+        raise HTTPException(status_code=422, detail="No IoT devices attached to this farm.")
+
+    readings_res = (
+        client.table("sensor_readings")
+        .select("device_id,salinity,ph,temperature,timestamp")
+        .in_("device_id", device_ids)
+        .order("timestamp", desc=False)
+        .limit(2000)
+        .execute()
+    )
+    readings_df = pd.DataFrame(readings_res.data or [])
+    if readings_df.empty:
+        raise HTTPException(status_code=422, detail="No sensor readings available for this farm.")
+    return readings_df
+
+
+def _predict_ai2_for_farm(client: Client, farm_id: str, farm: dict) -> dict:
+    bundle = _get_ai2_model_bundle()
+    metadata = bundle["metadata"]
+    feature_columns = metadata.get("feature_columns", [])
+    labels = metadata.get("labels", ["Low", "Medium", "High"])
+    if not feature_columns:
+        raise HTTPException(status_code=500, detail="AI2 metadata missing feature_columns.")
+
+    province = _infer_province_from_farm(farm)
+    readings_df = _load_farm_readings_df(client, farm_id)
+    feature_row, diagnostics = _build_ai2_feature_row(readings_df, feature_columns, province)
+
+    model = bundle["main_model"]
+    y_pred = model.predict(feature_row)
+    predicted_idx = int(y_pred[0]) if hasattr(y_pred[0], "__int__") else int(float(y_pred[0]))
+    predicted_label = labels[predicted_idx] if 0 <= predicted_idx < len(labels) else str(predicted_idx)
+
+    risk_score = None
+    if hasattr(model, "predict_proba"):
+        probs = model.predict_proba(feature_row)
+        risk_score = float(np.max(probs[0])) if len(probs) > 0 else None
+
+    return {
+        "farm_id": farm_id,
+        "risk_label": predicted_label,
+        "risk_score": risk_score,
+        "model_version": metadata.get("model_version", "unknown"),
+        "labels": labels,
+        "diagnostics": diagnostics,
+    }
+
+
+def _build_ai3_decision(
+    crop_mode: str,
+    stage: str,
+    forecast_points: list[ForecastPointResponse],
+    risk_label: str,
+    risk_score: Optional[float],
+    current_date: datetime,
+) -> dict:
+    sal_values = [float(point.salinity_pred) for point in forecast_points]
+    max_salinity = max(sal_values) if sal_values else 0.0
+    min_salinity = min(sal_values) if sal_values else 0.0
+    days_over_4 = sum(1 for value in sal_values if value > 4.0)
+    days_under_1 = sum(1 for value in sal_values if value < 1.0)
+    days_under_5 = sum(1 for value in sal_values if value < 5.0)
+    current_month = current_date.month
+
+    decision = "Tiếp tục vụ lúa" if crop_mode == "rice" else "Tiếp tục vụ tôm"
+    urgency = "normal"
+    reason = "Điều kiện hiện tại ổn định."
+    actions: list[str] = ["Tiếp tục theo dõi cảm biến mỗi 2-4 giờ."]
+
+    if crop_mode == "rice":
+        if stage == "late" and days_over_4 >= 3:
+            decision = "Thu hoạch khẩn cấp"
+            urgency = "critical"
+            reason = "Có từ 3/7 ngày dự báo độ mặn > 4‰ trong giai đoạn lúa cuối vụ."
+            actions = [
+                "Dừng cấp nước mặn vào ruộng ngay lập tức.",
+                "Đóng cống ngăn mặn và ưu tiên xả/rửa mặn sớm.",
+                "Thu hoạch sớm khu vực lúa đã chín để giảm thất thoát.",
+                "Chuẩn bị phương án chuyển sang vụ tôm nếu độ mặn duy trì cao.",
+            ]
+        elif max_salinity < 1.0 and risk_label in {"Low", "Medium"}:
+            decision = "Tiếp tục vụ lúa"
+            urgency = "normal"
+            reason = "Mức mặn dự báo thấp (<1‰) và rủi ro hiện tại không cao."
+            actions = [
+                "Duy trì lịch lấy nước ngọt và giữ mực nước mặt ruộng ổn định.",
+                "Theo dõi pH và bổ sung hữu cơ/vi sinh nếu cần.",
+                "Kiểm tra độ mặn đầu vào trước mỗi đợt bơm nước.",
+            ]
+        elif 1.0 <= max_salinity <= 4.0 and current_month in {12, 1, 2}:
+            decision = "Chuẩn bị chuyển vụ tôm"
+            urgency = "warning"
+            reason = "Độ mặn dự báo 1-4‰ trong mùa khô, phù hợp chuẩn bị chuyển vụ tôm-lúa."
+            actions = [
+                "Lập kế hoạch rửa mặn theo từng ô ruộng để tránh sốc cây.",
+                "Gia cố bờ bao, cống ngăn để chủ động khi mặn tăng nhanh.",
+                "Chuẩn bị vật tư và lịch thả giống tôm cho giai đoạn tiếp theo.",
+            ]
+        elif risk_label == "High":
+            decision = "Thu hoạch khẩn cấp"
+            urgency = "critical"
+            reason = "AI2 đánh giá rủi ro hiện tại ở mức High."
+            actions = [
+                "Kích hoạt quy trình ứng phó khẩn cấp theo farm.",
+                "Tạm dừng cấp nước mới cho đến khi kiểm soát được độ mặn.",
+                "Ưu tiên bảo vệ khu lúa đang cầm mặn và thu hoạch sớm nếu cần.",
+            ]
+    else:
+        if risk_label == "High" and (risk_score or 0.0) >= 0.75:
+            decision = "Điều tiết nước khẩn cấp"
+            urgency = "critical"
+            reason = "AI2 cho thấy rủi ro cao với độ tin cậy lớn."
+            actions = [
+                "Kiểm tra ngay cống cấp/thoát nước và thông số ao.",
+                "Điều tiết nước để đưa độ mặn về vùng 10-20‰ nếu có thể.",
+                "Tăng cường oxy hóa và giảm mật độ cho ăn tạm thời.",
+            ]
+        elif days_under_5 >= 3 or min_salinity < 3:
+            decision = "Chuẩn bị chuyển vụ lúa"
+            urgency = "warning"
+            reason = "Nhiều ngày độ mặn dự báo thấp (<5‰), cần cân nhắc chuyển vụ lúa."
+            actions = [
+                "Đánh giá khả năng rửa mặn và cải tạo đất cho vụ lúa.",
+                "Lên lịch giảm mật độ tôm, thu gọn vụ tôm hiện tại.",
+                "Theo dõi dự báo AI1 hằng ngày để chốt thời điểm chuyển vụ.",
+            ]
+        else:
+            decision = "Tiếp tục vụ tôm"
+            urgency = "normal"
+            reason = "Dự báo và rủi ro hiện tại nằm trong vùng có thể vận hành cho vụ tôm."
+            actions = [
+                "Duy trì độ mặn trong dải tối ưu theo giống tôm đang nuôi.",
+                "Theo dõi pH, nhiệt độ và bổ sung khoáng định kỳ.",
+                "Kiểm tra xác tôm, lượng ăn để điều chỉnh cho ăn.",
+            ]
+
+    return {
+        "decision": decision,
+        "urgency": urgency,
+        "reason": reason,
+        "actions": actions,
+        "signals": {
+            "crop_mode": crop_mode,
+            "stage": stage,
+            "max_salinity_7d": round(max_salinity, 3),
+            "min_salinity_7d": round(min_salinity, 3),
+            "days_over_4ppt_7d": int(days_over_4),
+            "days_under_5ppt_7d": int(days_under_5),
+            "risk_label": risk_label,
+            "risk_score": risk_score,
+        },
+    }
 
 
 @app.get("/health")
@@ -278,6 +569,122 @@ def forecast_7d_by_farm(
             model_set_used=result.model_set_used,
             forecast=[ForecastPointResponse(**point.__dict__) for point in result.forecast],
         )
+    except HTTPException:
+        raise
+    except ForecastError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/ai/risk/farm/{farm_id}")
+def predict_ai2_risk_by_farm(farm_id: str):
+    client = _require_supabase()
+    try:
+        farm_res = client.table("farms").select("id,address,farm_code").eq("id", farm_id).single().execute()
+        farm = farm_res.data
+        if not farm:
+            raise HTTPException(status_code=404, detail="Farm not found.")
+
+        return {
+            "success": True,
+            "data": _predict_ai2_for_farm(client, farm_id, farm),
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/ai/decision/farm/{farm_id}")
+def get_ai3_decision_by_farm(
+    farm_id: str,
+    current_date: Optional[str] = Query(None, description="Optional date YYYY-MM-DD"),
+):
+    client = _require_supabase()
+    try:
+        farm_res = client.table("farms").select("id,farm_type,address,farm_code").eq("id", farm_id).single().execute()
+        farm = farm_res.data
+        if not farm:
+            raise HTTPException(status_code=404, detail="Farm not found.")
+
+        province = _infer_province_from_farm(farm)
+        if not province:
+            raise HTTPException(status_code=422, detail="Cannot infer province from farm.")
+
+        try:
+            dt_now = datetime.strptime(current_date, "%Y-%m-%d") if current_date else datetime.now()
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="current_date must be YYYY-MM-DD.") from exc
+
+        season_res = (
+            client.table("seasons")
+            .select("season_type,start_date,variety,status")
+            .eq("farm_id", farm_id)
+            .eq("status", "active")
+            .maybe_single()
+            .execute()
+        )
+        season = season_res.data or {}
+        crop_mode = season.get("season_type")
+        if crop_mode not in {"rice", "shrimp"}:
+            crop_mode = "shrimp" if farm.get("farm_type") == "shrimp_only" else "rice"
+
+        start_date_raw = season.get("start_date")
+        if start_date_raw:
+            start_date = datetime.fromisoformat(str(start_date_raw).split("T")[0])
+        else:
+            start_date = dt_now - timedelta(days=45)
+        season_age_days = max(0, (dt_now.date() - start_date.date()).days)
+        if season_age_days <= 30:
+            stage = "early"
+        elif season_age_days <= 70:
+            stage = "mid"
+        else:
+            stage = "late"
+
+        forecast_result = get_forecast_service().forecast(
+            province=province,
+            as_of=dt_now.strftime("%Y-%m-%d"),
+            model_set="champion",
+        )
+        forecast_points = [ForecastPointResponse(**point.__dict__) for point in forecast_result.forecast]
+
+        ai2 = _predict_ai2_for_farm(client, farm_id, farm)
+        decision = _build_ai3_decision(
+            crop_mode=crop_mode,
+            stage=stage,
+            forecast_points=forecast_points,
+            risk_label=str(ai2.get("risk_label", "Medium")),
+            risk_score=ai2.get("risk_score"),
+            current_date=dt_now,
+        )
+
+        return {
+            "success": True,
+            "data": {
+                "farm_id": farm_id,
+                "province": province,
+                "crop_mode": crop_mode,
+                "season_stage": stage,
+                "season_age_days": season_age_days,
+                "decision": decision["decision"],
+                "urgency": decision["urgency"],
+                "reason": decision["reason"],
+                "actions": decision["actions"],
+                "signals": decision["signals"],
+                "ai1": {
+                    "as_of": forecast_result.as_of,
+                    "model_version": forecast_result.model_version,
+                    "model_set_used": forecast_result.model_set_used,
+                },
+                "ai2": {
+                    "risk_label": ai2.get("risk_label"),
+                    "risk_score": ai2.get("risk_score"),
+                    "model_version": ai2.get("model_version"),
+                },
+            },
+        }
     except HTTPException:
         raise
     except ForecastError as exc:
@@ -451,4 +858,5 @@ async def process_analysis(farm_id: str, analysis_type: str):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, app_dir="app")
+    reload_enabled = os.environ.get("AI_RELOAD", "0").strip() == "1"
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=reload_enabled, app_dir="app")

@@ -21,6 +21,11 @@ export const farmService = {
         return response.data;
     },
 
+    updateFarm: async (id: string, farmData: any) => {
+        const response = await api.put(`/farms/${id}`, farmData);
+        return response.data;
+    },
+
     deleteFarm: async (id: string) => {
         const response = await api.delete(`/farms/${id}`);
         return response.data;
@@ -33,6 +38,16 @@ export const farmService = {
 
     startSeason: async (seasonData: any) => {
         const response = await api.post('/farms/seasons/start', seasonData);
+        return response.data;
+    },
+
+    getAlertConfig: async (farmId: string) => {
+        const response = await api.get(`/farms/${farmId}/alert-config`);
+        return response.data;
+    },
+
+    updateAlertConfig: async (farmId: string, config: any) => {
+        const response = await api.put(`/farms/${farmId}/alert-config`, config);
         return response.data;
     },
 
