@@ -44,11 +44,20 @@ Add your screenshots here before publishing to GitHub.
 Recommended image names:
 
 - `docs/images/hero-banner.png`
+- `docs/images/system-overview.png`
 - `docs/images/dashboard-overview.png`
 - `docs/images/analysis-screen.png`
 - `docs/images/iot-monitoring.png`
 - `docs/images/alerts-screen.png`
 - `docs/images/architecture-diagram.png`
+
+## System Overview Snapshot
+
+<p align="center">
+  <img src="./docs/images/system-overview.png" alt="System overview" width="100%" />
+</p>
+
+Use this section for a high-level platform screenshot, workflow graphic, or product overview slide that explains the full system in one frame.
 
 ## Problem Context
 
