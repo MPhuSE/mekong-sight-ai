@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BarChart3, Bot, Brain, MessageCircleMore, Shield, Sprout } from 'lucide-react';
+import { ArrowRight, BarChart3, Bot, Brain, Menu, MessageCircleMore, Shield, Sprout, X } from 'lucide-react';
 import { BrandMark } from '../components/BrandMark';
 import anhtheimg from '../assets/img/anhthe.jpg';
 import luaxanhimg from '../assets/img/luakhoe.jpg';
@@ -15,6 +15,7 @@ const marqueeItems = [
 
 export const PublicHome = () => {
   const [activeSection, setActiveSection] = useState<(typeof sectionIds)[number]>('giai-phap');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const elements = sectionIds
@@ -76,9 +77,35 @@ export const PublicHome = () => {
           </nav>
 
           <div className="ph-header-actions">
-            <Link to="/login" className="ph-btn ph-btn-soft">
+            <Link to="/login" className="ph-btn ph-btn-soft ph-header-login">
               Đăng nhập
             </Link>
+            <button
+              type="button"
+              className="ph-mobile-menu-toggle"
+              aria-label={mobileMenuOpen ? 'Đóng menu' : 'Mở menu'}
+              aria-expanded={mobileMenuOpen}
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+            >
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+          </div>
+        </div>
+
+        <div className={`ph-mobile-menu ${mobileMenuOpen ? 'is-open' : ''}`}>
+          <div className="ph-shell ph-mobile-menu-inner">
+            <Link to="/services" className="ph-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
+              Dịch vụ
+            </Link>
+            <a href="#giai-phap" className="ph-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
+              Giải pháp
+            </a>
+            <a href="#tinh-nang" className="ph-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
+              Tính năng
+            </a>
+            <a href="#cong-dong" className="ph-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>
+              Cộng đồng
+            </a>
           </div>
         </div>
       </header>

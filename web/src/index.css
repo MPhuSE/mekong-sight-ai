@@ -376,6 +376,19 @@ textarea:focus {
   flex-shrink: 0;
 }
 
+.sidebar-header {
+  display: block;
+  position: relative;
+}
+
+.sidebar-hamburger {
+  display: none;
+}
+
+.sidebar-mobile-menu {
+  display: none;
+}
+
 .sidebar-logout {
   min-height: 56px;
   font-size: 1.08rem;
@@ -450,6 +463,10 @@ textarea:focus {
   box-shadow: 0 18px 40px rgba(5, 150, 105, 0.08);
 }
 
+.ui-page-hero > * {
+  min-width: 0;
+}
+
 .ui-page-hero-copy h1 {
   margin: 0.8rem 0 0.95rem;
   color: #064e3b;
@@ -473,6 +490,7 @@ textarea:focus {
 
 .ui-page-hero-aside {
   align-self: stretch;
+  min-width: 0;
 }
 
 .ui-realtime-clock {
@@ -900,6 +918,58 @@ textarea:focus {
 .ph-header-actions {
   display: flex;
   gap: 0.65rem;
+}
+
+.ph-header-login {
+  min-width: 134px;
+}
+
+.ph-mobile-menu-toggle,
+.ph-mobile-menu {
+  display: none;
+}
+
+.ph-mobile-menu-toggle {
+  min-width: 52px;
+  width: 52px;
+  min-height: 52px;
+  padding: 0;
+  border: 1px solid rgba(5, 150, 105, 0.16);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  color: #047857;
+  box-shadow: 0 10px 20px rgba(5, 150, 105, 0.1);
+}
+
+.ph-mobile-menu {
+  border-top: 1px solid rgba(209, 250, 229, 0.9);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 32px rgba(5, 150, 105, 0.08);
+}
+
+.ph-mobile-menu.is-open {
+  display: block;
+}
+
+.ph-mobile-menu-inner {
+  display: grid;
+  gap: 0.7rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.ph-mobile-nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  border-radius: 1rem;
+  background: rgba(236, 253, 245, 0.92);
+  color: #065f46;
+  text-decoration: none;
+  font-size: 1.02rem;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgba(5, 150, 105, 0.08);
 }
 
 .ph-btn {
@@ -1934,6 +2004,12 @@ textarea:focus {
     display: none;
   }
 
+  .ph-mobile-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .ph-chat-panel,
   .ph-human,
   .ph-feature-grid,
@@ -1962,15 +2038,45 @@ textarea:focus {
 
   .ph-header-inner {
     min-height: 92px;
+    gap: 0.75rem;
   }
 
   .ph-header-actions {
-    gap: 0.4rem;
+    gap: 0.55rem;
+    align-items: center;
+  }
+
+  .ph-brand {
+    font-size: 1.5rem;
+    gap: 0.6rem;
+  }
+
+  .ph-brand-mark {
+    width: 1.85rem;
+    height: 1.85rem;
   }
 
   .ph-btn {
     padding: 0.72rem 1rem;
     font-size: 0.98rem;
+  }
+
+  .ph-header-login {
+    min-width: auto;
+    padding: 0.72rem 0.95rem;
+    min-height: 52px;
+    border-radius: 1rem;
+    font-size: 1rem;
+    line-height: 1.15;
+    white-space: nowrap;
+    box-shadow: 0 10px 18px rgba(22, 163, 74, 0.12);
+  }
+
+  .ph-mobile-menu-toggle {
+    min-width: 48px;
+    width: 48px;
+    min-height: 48px;
+    border-radius: 0.95rem;
   }
 
   .ph-hero {
@@ -2648,6 +2754,13 @@ textarea:focus {
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 253, 244, 0.94));
 }
 
+.dashboard-hero > *,
+.dashboard-main-grid > *,
+.dashboard-bottom-grid > *,
+.dashboard-metric-grid > * {
+  min-width: 0;
+}
+
 .dashboard-hero-copy h1 {
   margin: 0;
   color: #0f172a;
@@ -2695,11 +2808,13 @@ textarea:focus {
   border-radius: 1.6rem;
   border: 1px solid rgba(15, 159, 117, 0.12);
   background: rgba(255, 255, 255, 0.92);
+  min-width: 0;
 }
 
 .dashboard-control-field {
   display: grid;
   gap: 0.45rem;
+  min-width: 0;
 }
 
 .dashboard-control-field-wide {
@@ -2756,6 +2871,7 @@ textarea:focus {
   align-items: center;
   gap: 0.75rem;
   color: #0f9f75;
+  min-width: 0;
 }
 
 .dashboard-card-title-wrap h2,
@@ -2791,6 +2907,7 @@ textarea:focus {
   gap: 1rem;
   align-items: center;
   padding-top: 1rem;
+  min-width: 0;
 }
 
 .dashboard-season-grid {
@@ -3568,5 +3685,535 @@ textarea:focus {
 
   .chat-message {
     max-width: 100%;
+  }
+}
+
+@media (max-width: 1200px) {
+  .app-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    position: relative;
+    top: auto;
+    width: 100%;
+    height: auto;
+    padding: 1.2rem 1rem;
+    gap: 1rem;
+    overflow: visible;
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.45rem;
+  }
+
+  .sidebar-brand {
+    margin-bottom: 0;
+    font-size: 1.65rem;
+  }
+
+  .sidebar-hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0;
+    border: 1px solid rgba(15, 159, 117, 0.18);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #0f9f75;
+    box-shadow: 0 12px 28px rgba(5, 150, 105, 0.08);
+  }
+
+  .sidebar-nav {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    scrollbar-width: none;
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+
+  .sidebar-logout {
+    display: none;
+  }
+
+  .sidebar-mobile-menu {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 30;
+    min-width: 180px;
+    padding: 0.55rem;
+    border-radius: 16px;
+    border: 1px solid rgba(15, 159, 117, 0.16);
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
+  }
+
+  .sidebar-mobile-menu.is-open {
+    display: block;
+  }
+
+  .sidebar-mobile-logout {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .main-content {
+    max-width: none;
+    padding: 1.6rem;
+  }
+
+  .dashboard-topbar {
+    margin-bottom: 1.6rem !important;
+    justify-content: flex-start !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .users-toolbar,
+  .users-table-toolbar,
+  .admin-page-toolbar,
+  .admin-page-actions,
+  .admin-table-toolbar,
+  .settings-profile-top,
+  .dashboard-userbar {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .settings-layout,
+  .admin-split-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .settings-content {
+    padding: 1.5rem !important;
+  }
+
+  .settings-form-grid-2,
+  .settings-form-grid-3,
+  .admin-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .users-table-shell table,
+  .admin-data-table {
+    min-width: 720px;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    animation-duration: 22s;
+  }
+
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 1.25rem;
+  }
+
+  h2 {
+    font-size: 1.45rem;
+    margin-bottom: 1rem;
+  }
+
+  .main-content {
+    padding: 1rem;
+  }
+
+  .sidebar {
+    padding: 1rem 0.85rem;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.25rem;
+    gap: 0.55rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .sidebar-brand {
+    font-size: 1.45rem;
+  }
+
+  .sidebar-brand-mark {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .nav-item {
+    flex: 0 0 auto;
+    padding: 0.85rem 0.95rem;
+    font-size: 1rem;
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
+  .card,
+  .glass-card {
+    border-radius: 18px;
+  }
+
+  button,
+  .ph-btn {
+    min-height: 48px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .users-page table,
+  .admin-data-table {
+    min-width: 680px;
+  }
+
+  .settings-sidebar .nav-item {
+    justify-content: flex-start;
+  }
+
+  .main-content [style*='grid-template-columns: 280px 1fr'],
+  .main-content [style*='grid-template-columns: 1.5fr 1fr'],
+  .main-content [style*='grid-template-columns: 1fr 1fr'],
+  .main-content [style*='grid-template-columns: 1fr 1fr 1fr'] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .main-content [style*='display: flex'][style*='justify-content: space-between'] {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 1rem !important;
+  }
+
+  .dashboard-topbar {
+    margin-bottom: 1rem !important;
+  }
+
+  .dashboard-userbar {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.5rem !important;
+    align-items: flex-start !important;
+  }
+
+  .dashboard-userbar > span {
+    overflow-wrap: anywhere;
+  }
+
+  .dashboard-userbar > div:last-child {
+    margin-left: 0 !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboard-quick-grid,
+  .chat-quick-grid,
+  .analysis-report-grid,
+  .farms-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-section-nav {
+    position: static;
+    top: auto;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    scrollbar-width: none;
+  }
+
+  .analysis-section-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .analysis-anchor {
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .farms-toolbar,
+  .farm-modal-head,
+  .farm-modal-actions,
+  .farm-card-actions,
+  .farm-inline-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .farm-detail-grid,
+  .farm-location-grid,
+  .farm-season-grid,
+  .farm-form-grid,
+  .farm-threshold-grid,
+  .farm-threshold-inner-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .farm-modal-panel {
+    padding: 1.5rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-page,
+  .chat-page,
+  .alerts-page,
+  .analysis-page,
+  .farms-page {
+    gap: 1rem;
+  }
+
+  .dashboard-hero,
+  .chat-shell,
+  .analysis-hero,
+  .analysis-card,
+  .analysis-section,
+  .farm-card {
+    box-shadow: 0 14px 28px rgba(5, 150, 105, 0.08);
+  }
+
+  .dashboard-hero-copy h1,
+  .analysis-hero-copy h1 {
+    font-size: 1.8rem;
+    line-height: 1.16;
+  }
+
+  .dashboard-live-row {
+    gap: 0.65rem;
+    font-size: 1rem;
+  }
+
+  .ui-page-hero,
+  .dashboard-hero {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .ui-page-hero-copy,
+  .ui-page-hero-aside,
+  .dashboard-hero-copy,
+  .dashboard-control-panel,
+  .dashboard-card-title-wrap,
+  .dashboard-season-body,
+  .dashboard-advice-strip,
+  .dashboard-status-box,
+  .dashboard-reading-group {
+    min-width: 0;
+  }
+
+  .dashboard-control-panel {
+    gap: 0.85rem;
+    padding: 0.95rem;
+  }
+
+  .dashboard-control-field select,
+  .chat-context-card select,
+  .analysis-field select,
+  .analysis-field input {
+    min-height: 52px;
+  }
+
+  .dashboard-hero-actions .ph-btn,
+  .chat-quick-grid .ph-btn,
+  .alerts-item-foot .ph-btn,
+  .analysis-submit,
+  .analysis-library-link,
+  .farm-card-actions button,
+  .farm-modal-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .dashboard-hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .dashboard-hero-actions > * {
+    flex: 1 1 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .dashboard-table-wrap,
+  .analysis-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-table,
+  .analysis-data-table {
+    min-width: 560px;
+  }
+
+  .dashboard-season-card,
+  .dashboard-panel,
+  .dashboard-metric-card {
+    padding: 1rem;
+  }
+
+  .dashboard-season-row span,
+  .dashboard-season-row strong,
+  .dashboard-panel-footnote,
+  .dashboard-status-box p,
+  .dashboard-tip-list li,
+  .dashboard-metric-card span,
+  .dashboard-metric-card small,
+  .dashboard-head-copy {
+    overflow-wrap: anywhere;
+  }
+
+  .chat-context-card,
+  .chat-shell,
+  .analysis-card,
+  .analysis-section,
+  .farm-modal-panel,
+  .alerts-page .ui-section-card {
+    padding: 1rem;
+  }
+
+  .chat-thread {
+    max-height: min(55vh, 520px);
+    padding: 0.85rem;
+  }
+
+  .chat-message {
+    gap: 0.45rem;
+  }
+
+  .chat-message-bubble {
+    padding: 0.9rem 1rem;
+    font-size: 0.98rem;
+    line-height: 1.7;
+  }
+
+  .chat-input-box {
+    min-height: 120px;
+  }
+
+  .alerts-item {
+    padding: 1rem;
+  }
+
+  .alerts-item-meta,
+  .alerts-item-foot {
+    width: 100%;
+  }
+
+  .alerts-item-meta span,
+  .alerts-farm-chip {
+    font-size: 0.88rem;
+  }
+
+  .analysis-card-header,
+  .analysis-section-header {
+    gap: 0.8rem;
+  }
+
+  .analysis-card-icon {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .analysis-highlight-panel,
+  .analysis-decision-card,
+  .analysis-library-item,
+  .analysis-history-item {
+    padding: 1rem;
+  }
+
+  .analysis-footnote {
+    padding: 0.9rem 1rem;
+    font-size: 0.94rem;
+  }
+
+  .farms-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .farm-card {
+    padding: 1.1rem;
+  }
+
+  .farm-modal-overlay {
+    align-items: flex-start !important;
+    padding: 0.75rem !important;
+  }
+
+  .farm-detail-panel,
+  .farm-threshold-panel {
+    max-width: 100% !important;
+  }
+
+  .farm-modal-panel .leaflet-container {
+    height: 220px !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-hero,
+  .analysis-hero,
+  .chat-shell,
+  .farm-modal-panel,
+  .alerts-page .ui-section-card {
+    border-radius: 1rem;
+  }
+
+  .dashboard-hero-copy h1,
+  .analysis-hero-copy h1,
+  .chat-shell-head h2 {
+    font-size: 1.55rem;
+  }
+
+  .dashboard-metric-card,
+  .dashboard-panel,
+  .dashboard-season-card,
+  .analysis-summary-card,
+  .analysis-highlight-panel,
+  .analysis-decision-card,
+  .alerts-item,
+  .farm-card {
+    padding: 0.95rem;
+  }
+
+  .dashboard-progress-ring {
+    width: 112px;
+    height: 112px;
+  }
+
+  .dashboard-progress-ring-inner {
+    width: 78px;
+    height: 78px;
+    font-size: 1.1rem;
+  }
+
+  .chat-power-pill,
+  .alerts-farm-chip,
+  .analysis-meta-pill,
+  .analysis-soft-chip,
+  .analysis-value-chip {
+    font-size: 0.8rem;
   }
 }

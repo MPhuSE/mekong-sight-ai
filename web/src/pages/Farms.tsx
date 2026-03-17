@@ -451,8 +451,8 @@ export const Farms: React.FC = () => {
     };
 
     return (
-        <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
-            <div className="flex justify-between items-center" style={{ marginBottom: '2.5rem' }}>
+        <div className="farms-page" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+            <div className="flex justify-between items-center farms-toolbar" style={{ marginBottom: '2.5rem' }}>
                 <div>
                     <h1 style={{ marginBottom: '0.5rem' }}>Quản lý trang trại</h1>
                     <p className="text-secondary">Danh sách các khu vực nuôi trồng và thông tin chi tiết.</p>
@@ -467,14 +467,14 @@ export const Farms: React.FC = () => {
                     <Loader2 className="animate-spin" size={40} color="var(--primary-glow)" />
                 </div>
             ) : (
-                <div className="grid">
+                <div className="grid farms-grid">
                     {farms.length === 0 ? (
                         <div className="card" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '4rem', borderStyle: 'dashed' }}>
                             <p className="text-secondary">Bạn chưa có trang trại nào. Hãy thêm trang trại đầu tiên!</p>
                         </div>
                     ) : (
                         farms.map(farm => (
-                            <div key={farm.id} className="card">
+                            <div key={farm.id} className="card farm-card">
                                 <div className="flex justify-between items-start" style={{ marginBottom: '1.5rem' }}>
                                     <h3>{farm.farm_name}</h3>
                                     <span className={`status-tag status-${farm.status === 'active' ? 'active' : 'warning'}`}>
@@ -500,7 +500,7 @@ export const Farms: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div style={{ marginTop: '2rem', display: 'flex', gap: '0.8rem' }}>
+                                <div className="farm-card-actions" style={{ marginTop: '2rem', display: 'flex', gap: '0.8rem' }}>
                                     <button
                                         className="primary"
                                         style={{ flex: 1, fontSize: '0.8rem' }}
@@ -524,9 +524,9 @@ export const Farms: React.FC = () => {
             )}
 
             {showModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(8px)', overflowY: 'auto', padding: '1rem' }}>
-                    <div className="card glass-card" style={{ width: '100%', maxWidth: '480px', padding: '2.5rem', maxHeight: '92vh', overflowY: 'auto' }}>
-                        <div className="flex justify-between items-center" style={{ marginBottom: '2rem' }}>
+                <div className="farm-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(8px)', overflowY: 'auto', padding: '1rem' }}>
+                    <div className="card glass-card farm-modal-panel" style={{ width: '100%', maxWidth: '480px', padding: '2.5rem', maxHeight: '92vh', overflowY: 'auto' }}>
+                        <div className="flex justify-between items-center farm-modal-head" style={{ marginBottom: '2rem' }}>
                             <h2>Thêm trang trại</h2>
                             <button className="secondary" style={{ padding: '8px', borderRadius: '50%' }} onClick={() => setShowModal(false)}>
                                 <X size={20} />
@@ -584,7 +584,7 @@ export const Farms: React.FC = () => {
                                 />
                             </div>
 
-                            <div style={{ marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                            <div className="farm-form-grid" style={{ marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div>
                                     <label className="text-secondary" style={{ display: 'block', marginBottom: '0.6rem', fontSize: '0.8rem', fontWeight: 600 }}>Vĩ độ (tuỳ chọn)</label>
                                     <input
@@ -619,7 +619,7 @@ export const Farms: React.FC = () => {
                                 </select>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '1rem' }}>
+                            <div className="farm-modal-actions" style={{ display: 'flex', gap: '1rem' }}>
                                 <button type="button" className="secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Hủy bỏ</button>
                                 <button type="submit" className="primary" style={{ flex: 1 }} disabled={submitting}>
                                     {submitting ? 'Đang tạo...' : 'Xác nhận tạo'}
@@ -631,9 +631,9 @@ export const Farms: React.FC = () => {
             )}
             {/* Modal Chi tiết Trang trại */}
             {selectedFarm && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(8px)', overflowY: 'auto', padding: '1rem' }}>
-                    <div className="card glass-card" style={{ width: '100%', maxWidth: '600px', padding: '2.5rem', maxHeight: '92vh', overflowY: 'auto' }}>
-                        <div className="flex justify-between items-center" style={{ marginBottom: '2rem' }}>
+                <div className="farm-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(8px)', overflowY: 'auto', padding: '1rem' }}>
+                    <div className="card glass-card farm-modal-panel farm-detail-panel" style={{ width: '100%', maxWidth: '600px', padding: '2.5rem', maxHeight: '92vh', overflowY: 'auto' }}>
+                        <div className="flex justify-between items-center farm-modal-head" style={{ marginBottom: '2rem' }}>
                             <div>
                                 <h2 style={{ marginBottom: '0.4rem' }}>{selectedFarm.farm_name}</h2>
                                 <span className={`status-tag status-${selectedFarm.status === 'active' ? 'active' : 'warning'}`}>
@@ -645,7 +645,7 @@ export const Farms: React.FC = () => {
                             </button>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                        <div className="farm-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
                             <div className="glass-card p-4">
                                 <label className="text-secondary" style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>THÔNG TIN CHUNG</label>
                                 <div style={{ fontSize: '0.9rem' }}>
@@ -701,7 +701,7 @@ export const Farms: React.FC = () => {
                                 </MapContainer>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '0.8rem' }}>
+                            <div className="farm-location-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '0.8rem' }}>
                                 <div>
                                     <label style={{ fontSize: '0.75rem' }}>Vĩ độ</label>
                                     <input
@@ -766,7 +766,7 @@ export const Farms: React.FC = () => {
 
                             {showSeasonForm ? (
                                 <form onSubmit={handleStartSeason}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                                    <div className="farm-season-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                                         <div>
                                             <label style={{ fontSize: '0.7rem', display: 'block', marginBottom: '0.3rem' }}>Loại hình</label>
                                             <select
@@ -810,7 +810,7 @@ export const Farms: React.FC = () => {
                                             </select>
                                         </div>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 farm-inline-actions">
                                         <button type="submit" className="primary" style={{ flex: 1, fontSize: '0.75rem' }} disabled={submitting}>Xác nhận</button>
                                         <button type="button" className="secondary" style={{ flex: 1, fontSize: '0.75rem' }} onClick={() => setShowSeasonForm(false)}>Hủy</button>
                                     </div>
@@ -826,7 +826,7 @@ export const Farms: React.FC = () => {
                             )}
                         </div>
 
-                        <div style={{ display: 'flex', gap: '1rem' }}>
+                        <div className="farm-modal-actions" style={{ display: 'flex', gap: '1rem' }}>
                             <button className="primary" style={{ flex: 1 }} onClick={openThresholdConfig}>Cấu hình ngưỡng cảnh báo</button>
                             <button className="secondary" onClick={() => setSelectedFarm(null)} style={{ flex: 0.5 }}>Đóng</button>
                         </div>
@@ -835,9 +835,9 @@ export const Farms: React.FC = () => {
             )}
 
             {showThresholdModal && selectedFarm && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 120, backdropFilter: 'blur(8px)', overflowY: 'auto', padding: '1rem' }}>
-                    <div className="card glass-card" style={{ width: '100%', maxWidth: '760px', padding: '2rem', maxHeight: '92vh', overflowY: 'auto' }}>
-                        <div className="flex justify-between items-center" style={{ marginBottom: '1.5rem' }}>
+                <div className="farm-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 120, backdropFilter: 'blur(8px)', overflowY: 'auto', padding: '1rem' }}>
+                    <div className="card glass-card farm-modal-panel farm-threshold-panel" style={{ width: '100%', maxWidth: '760px', padding: '2rem', maxHeight: '92vh', overflowY: 'auto' }}>
+                        <div className="flex justify-between items-center farm-modal-head" style={{ marginBottom: '1.5rem' }}>
                             <div>
                                 <h2 style={{ marginBottom: '0.4rem' }}>Cấu hình ngưỡng cảnh báo</h2>
                                 <p className="text-secondary" style={{ fontSize: '0.85rem' }}>
@@ -855,7 +855,7 @@ export const Farms: React.FC = () => {
                             </div>
                         ) : (
                             <form onSubmit={handleSaveThresholdConfig}>
-                                <div style={{ display: 'grid', gridTemplateColumns: allowsRiceConfig && allowsShrimpConfig ? '1fr 1fr' : '1fr', gap: '1rem', marginBottom: '1.2rem' }}>
+                                <div className="farm-threshold-grid" style={{ display: 'grid', gridTemplateColumns: allowsRiceConfig && allowsShrimpConfig ? '1fr 1fr' : '1fr', gap: '1rem', marginBottom: '1.2rem' }}>
                                     {allowsRiceConfig && (
                                         <div>
                                         <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '0.3rem', fontWeight: 600 }}>Giống lúa</label>
@@ -884,11 +884,11 @@ export const Farms: React.FC = () => {
                                     )}
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: allowsRiceConfig && allowsShrimpConfig ? '1fr 1fr' : '1fr', gap: '1rem', marginBottom: '1.2rem' }}>
+                                <div className="farm-threshold-grid" style={{ display: 'grid', gridTemplateColumns: allowsRiceConfig && allowsShrimpConfig ? '1fr 1fr' : '1fr', gap: '1rem', marginBottom: '1.2rem' }}>
                                     {allowsRiceConfig && (
                                         <div className="glass-card p-4">
                                         <h4 style={{ marginTop: 0, marginBottom: '0.8rem' }}>Ngưỡng lúa (‰)</h4>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                                        <div className="farm-threshold-inner-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
                                             <div>
                                                 <label style={{ fontSize: '0.75rem' }}>Cảnh báo (max)</label>
                                                 <input
@@ -916,7 +916,7 @@ export const Farms: React.FC = () => {
                                     {allowsShrimpConfig && (
                                         <div className="glass-card p-4">
                                         <h4 style={{ marginTop: 0, marginBottom: '0.8rem' }}>Ngưỡng tôm (‰)</h4>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                                        <div className="farm-threshold-inner-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
                                             <div>
                                                 <label style={{ fontSize: '0.75rem' }}>Cảnh báo (min)</label>
                                                 <input
@@ -958,7 +958,7 @@ export const Farms: React.FC = () => {
                                                 />
                                             </div>
                                         </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginTop: '0.8rem' }}>
+                                        <div className="farm-threshold-inner-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginTop: '0.8rem' }}>
                                             <div>
                                                 <label style={{ fontSize: '0.75rem' }}>Tối ưu (min)</label>
                                                 <input
@@ -984,7 +984,7 @@ export const Farms: React.FC = () => {
                                     )}
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                                <div className="farm-modal-actions" style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                                     <button type="button" className="secondary" onClick={() => setShowThresholdModal(false)}>
                                         Hủy
                                     </button>

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -11,12 +11,15 @@ import {
   MessageCircle,
   Cpu,
   Radio,
+  Menu,
+  X,
 } from 'lucide-react';
 import { BrandMark } from './BrandMark';
 
 export const Layout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -37,6 +40,10 @@ export const Layout: React.FC = () => {
   const user = getUser();
   const role = user.role || 'farmer';
 
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   const menuItems = role === 'admin'
     ? [
         { path: '/dashboard/admin/stations', icon: <Radio size={22} />, label: 'Quản lý trạm' },
@@ -54,14 +61,26 @@ export const Layout: React.FC = () => {
       ];
 
   return (
-    <div className="app-container">
+    <div className="app-container dashboard-shell">
       <aside className="sidebar">
-        <div className="logo sidebar-brand">
-          <BrandMark className="sidebar-brand-mark" />
-          <span>Mekong Sight AI</span>
+        <div className="sidebar-header">
+          <div className="logo sidebar-brand">
+            <BrandMark className="sidebar-brand-mark" />
+            <span>Mekong Sight AI</span>
+          </div>
+
+          <button
+            type="button"
+            className="sidebar-hamburger"
+            aria-label={mobileMenuOpen ? 'Đóng menu' : 'Mở menu'}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
 
-        <nav style={{ flex: 1 }}>
+        <nav className="sidebar-nav" style={{ flex: 1 }}>
           {menuItems.map((item) => (
             <Link
               key={item.path}
@@ -74,6 +93,17 @@ export const Layout: React.FC = () => {
           ))}
         </nav>
 
+        <div className={`sidebar-mobile-menu ${mobileMenuOpen ? 'is-open' : ''}`}>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="secondary sidebar-mobile-logout"
+          >
+            <LogOut size={20} />
+            Đăng xuất
+          </button>
+        </div>
+
         <button
           onClick={handleLogout}
           className="secondary sidebar-logout"
@@ -85,8 +115,8 @@ export const Layout: React.FC = () => {
       </aside>
 
       <main className="main-content">
-        <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-          <div className="flex items-center gap-2">
+        <header className="dashboard-topbar" style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <div className="flex items-center gap-2 dashboard-userbar">
             <span className="text-secondary">Xin chào,</span>
             <span style={{ fontWeight: 600 }}>{user.full_name || user.phone_number || 'Khách'}</span>
             <div

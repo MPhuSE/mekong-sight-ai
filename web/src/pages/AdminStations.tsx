@@ -167,8 +167,8 @@ export const AdminStations: React.FC = () => {
     };
 
     return (
-        <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
-            <div className="flex justify-between items-center" style={{ marginBottom: '2.5rem' }}>
+        <div className="admin-stations-page" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+            <div className="flex justify-between items-center admin-page-toolbar" style={{ marginBottom: '2.5rem' }}>
                 <div>
                     <h1 style={{ marginBottom: '0.5rem' }}>Quản lý Hệ thống</h1>
                     <p className="text-secondary">Giám sát vị trí địa lý của các trạm và tình trạng mạng lưới toàn vùng.</p>
@@ -179,7 +179,7 @@ export const AdminStations: React.FC = () => {
             </div>
 
             {/* ... stats cards ... */}
-            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', marginBottom: '2rem' }}>
+            <div className="grid admin-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', marginBottom: '2rem' }}>
                 <div className="card glass-card">
                     <div className="flex justify-between items-start" style={{ marginBottom: '1rem' }}>
                         <div style={{ padding: '10px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '10px', color: 'var(--primary-green)' }}>
@@ -202,10 +202,10 @@ export const AdminStations: React.FC = () => {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
+            <div className="admin-split-grid" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
                 {/* ... table and map ... */}
                 <div className="card glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-light)', display: 'flex', gap: '1rem' }}>
+                    <div className="admin-table-toolbar" style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-light)', display: 'flex', gap: '1rem' }}>
                         <div style={{ position: 'relative', flex: 1 }}>
                             <Search size={18} style={{ position: 'absolute', left: '1rem', top: '0.85rem', color: 'var(--text-muted)' }} />
                             <input
