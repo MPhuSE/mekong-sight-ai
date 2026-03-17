@@ -88,15 +88,15 @@ export const Settings: React.FC = () => {
     );
 
     return (
-        <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
-            <div style={{ marginBottom: '2.5rem' }}>
+        <div className="settings-page" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+            <div className="settings-page-head" style={{ marginBottom: '2.5rem' }}>
                 <h1 style={{ marginBottom: '0.5rem' }}>Cấu hình hệ thống</h1>
                 <p className="text-secondary">Quản lý thông tin cá nhân, vùng nuôi và thiết bị của bạn.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '2rem' }}>
+            <div className="settings-layout" style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '2rem' }}>
                 {/* Sidebar Settings */}
-                <div className="card glass-card" style={{ height: 'fit-content', padding: '1rem' }}>
+                <div className="card glass-card settings-sidebar" style={{ height: 'fit-content', padding: '1rem' }}>
                     <div
                         className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
                         style={{ cursor: 'pointer' }}
@@ -142,13 +142,13 @@ export const Settings: React.FC = () => {
                 </div>
 
                 {/* Content Area */}
-                <div className="card glass-card" style={{ padding: '2.5rem' }}>
+                <div className="card glass-card settings-content" style={{ padding: '2.5rem' }}>
                     <form onSubmit={handleSave}>
                         {activeTab === 'profile' && (
                             <div style={{ animation: 'fadeIn 0.3s' }}>
                                 <h3 style={{ marginBottom: '2rem' }}>Hồ sơ cá nhân</h3>
 
-                                <div className="flex items-center gap-6" style={{ marginBottom: '2.5rem' }}>
+                                <div className="flex items-center gap-6 settings-profile-top" style={{ marginBottom: '2.5rem' }}>
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ width: 100, height: 100, borderRadius: '20px', background: 'var(--primary-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 'bold' }}>
                                             {(profile.full_name || 'K').charAt(0)}
@@ -163,7 +163,7 @@ export const Settings: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                <div className="settings-form-grid settings-form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                                     <div style={{ gridColumn: '1 / -1' }}>
                                         <label className="text-secondary" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem' }}>Họ và tên</label>
                                         <input
@@ -192,7 +192,7 @@ export const Settings: React.FC = () => {
                         {activeTab === 'location' && (
                             <div style={{ animation: 'fadeIn 0.3s' }}>
                                 <h3 style={{ marginBottom: '2rem' }}>Địa lý & Vùng nuôi</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
+                                <div className="settings-form-grid settings-form-grid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
                                     <div>
                                         <label className="text-secondary" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem' }}>Tỉnh / Thành phố</label>
                                         {aiSupportedProvinces.length > 0 ? (
@@ -297,7 +297,7 @@ export const Settings: React.FC = () => {
                         {activeTab === 'preferences' && (
                             <div style={{ animation: 'fadeIn 0.3s' }}>
                                 <h3 style={{ marginBottom: '2rem' }}>Tùy chỉnh ứng dụng</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                <div className="settings-form-grid settings-form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                                     <div>
                                         <label className="text-secondary" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem' }}>Ngôn ngữ hiển thị</label>
                                         <select

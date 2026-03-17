@@ -22,8 +22,8 @@ export const Users: React.FC = () => {
     }, []);
 
     return (
-        <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
-            <div className="flex justify-between items-center" style={{ marginBottom: '2.5rem' }}>
+        <div className="users-page" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+            <div className="flex justify-between items-center users-toolbar" style={{ marginBottom: '2.5rem' }}>
                 <div>
                     <h1 style={{ marginBottom: '0.5rem' }}>Quản lý người dùng</h1>
                     <p className="text-secondary">Phân quyền và quản lý tài khoản thành viên trong hệ thống.</p>
@@ -33,8 +33,8 @@ export const Users: React.FC = () => {
                 </button>
             </div>
 
-            <div className="card glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: '1rem' }}>
+            <div className="card glass-card users-table-shell" style={{ padding: 0, overflow: 'hidden' }}>
+                <div className="users-table-toolbar" style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: '1rem' }}>
                     <div style={{ position: 'relative', flex: 1 }}>
                         <Search size={18} style={{ position: 'absolute', left: '1rem', top: '0.8rem', color: 'var(--text-dim)' }} />
                         <input
